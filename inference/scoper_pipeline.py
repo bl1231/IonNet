@@ -109,10 +109,10 @@ class KGSRNA:
         :param kgsrna_script_path: kgsrna script to run to create samples
         """
         self.__kgsrna_work_dir = kgsrna_work_dir
-        self.__kgsrna_script_path = "scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna --initial {}.HB --hbondMethod rnaview --hbondFile {}.HB.out -s {} -r 20 -c 0.4 --workingDirectory {}/ > ! out "
+        self.__kgsrna_script_path = "/usr/local/bin/kgs_explore --initial {}.HB -s {} -r 20 -c 0.4 --workingDirectory {}/"
         self.__pdb_path = pdb_path
         self.__addhydrogens_script_path = add_hydrogens_script_path
-        self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
+        # self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
         self.__kgs_k = kgs_k
         self.__saxs_script_path = saxs_script_path
         self.__saxs_profile_path = saxs_profile_path
@@ -144,21 +144,35 @@ class KGSRNA:
         :return:
         """
         print("Adding hydrogens")
-        subprocess.run(f"{self.__addhydrogens_script_path} {self.__pdb_path}", shell=True,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL
+        result = subprocess.run(f"{self.__addhydrogens_script_path} {self.__pdb_path}", shell=True,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE
                        )
+        print("STDOUT:")
+        print(result.stdout)
+        print("STDERR:")
+        print(result.stderr)
+
+        print("KGS prepare")
+        result = subprocess.run(f"python /home/bun/app/scripts/kgs_prepare.py -v {self.__pdb_path}", shell=True,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE
+                       )
+        print("STDOUT:")
+        print(result.stdout)
+        print("STDERR:")
+        print(result.stderr)
 
         # set up environment variables for RNAVIEW (must already be installed)
-        my_env = os.environ.copy()
-        my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
+        # my_env = os.environ.copy()
+        # my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
 
-        print("Running rnaview on input pdb")
-        subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB", shell=True, env=my_env,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL
-                       )
-        self.__kgsrna_clean_pdb()
+        # print("Running rnaview on input pdb")
+        # subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB", shell=True, env=my_env,
+        #                stdout=subprocess.DEVNULL,
+        #                stderr=subprocess.DEVNULL
+        #                )
+        # self.__kgsrna_clean_pdb()
         if not os.path.isdir(self.__kgsrna_work_dir):
             os.mkdir(self.__kgsrna_work_dir)
         if not os.path.isdir(self.__pdb_workdir):
