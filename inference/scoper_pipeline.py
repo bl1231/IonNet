@@ -148,19 +148,19 @@ class KGSRNA:
                        stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE
                        )
-        print("STDOUT:")
+        print("reduce STDOUT:")
         print(result.stdout)
-        print("STDERR:")
+        print("reduce STDERR:")
         print(result.stderr)
 
         print("KGS prepare")
-        result = subprocess.run(f"python /home/bun/app/scripts/kgs_prepare.py -v {self.__pdb_path}", shell=True,
+        result = subprocess.run(f"python /home/bun/app/scripts/kgs_prepare.py -v {self.__pdb_path}.HB", shell=True,
                        stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE
                        )
-        print("STDOUT:")
+        print("kgs_prepare STDOUT:")
         print(result.stdout)
-        print("STDERR:")
+        print("kgs_prepare STDERR:")
         print(result.stderr)
 
         # set up environment variables for RNAVIEW (must already be installed)
