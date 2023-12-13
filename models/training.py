@@ -172,6 +172,7 @@ class GraphGNN():
         pbar.close()
 
     def test(self, test_loader, thresholds, single_node=False, inference=False):
+        print("in GraphNN test()")
         metrics_dict = dict()
         self.model.eval()
         test_loss = 0
@@ -182,11 +183,13 @@ class GraphGNN():
         test_thresh_auc = [AUROC().to(self.device) for _ in range(len(thresholds))]
         ret_predictions = []
         ret_labels = []
+        print("here <----------- 1")
         # turn off gradients for validation
         with torch.no_grad():
             for data in pbar:
                 data.to(self.device)
                 # forward pass
+                #print("here <----------- 1.1")
                 x = self.model(data)
                 x = x.squeeze(dim=-1)
                 # test batch loss
@@ -213,6 +216,7 @@ class GraphGNN():
                 metrics_dict.update(batch_scores)
                 pbar.set_description(f"Test on test set", refresh=False)
                 pbar.set_postfix(metrics_dict, refresh=False)
+        print("here <----------- 2")
         metrics_dict.update(self.metrics_val.compute())
         fpr, tpr, roc_thresholds = roc.compute()
         precision, recall, pr_thresholds = pr.compute()

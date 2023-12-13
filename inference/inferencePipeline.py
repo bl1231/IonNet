@@ -20,6 +20,9 @@ import matplotlib.ticker as mticker
 
 
 class InferencePipeline:
+    """
+    InferencePipeline Class
+    """
 
     def __init__(self, odir: str, fpath: str, inference_type: str, model_path: str, model_config_path: str = None, pymol=False, overwrite=False, foxs_script=None, multifoxs_script=None):
         self.processor = PDBProcessor(odir, fpath)
@@ -30,11 +33,20 @@ class InferencePipeline:
         config['multifoxs_script'] = multifoxs_script
 
     def infer(self):
+        # print("infer ---------------------------")
         features_dir, probe_path, rna_path, mg_path = self.processor.process()
-        self.predictions_path = os.path.join(os.path.dirname(probe_path), f'{os.path.basename(self.predictor.model_path).split(".")[0]}_predictions.npy')
+        print(f"--infer-- features_dir: {features_dir}")
+        print(f"--infer-- probe_path: {probe_path}")
+        print(f"--infer-- rna_path: {rna_path}")
+        print(f"--infer-- mg_path: {mg_path}")
+        self.predictions_path = os.path.join(os.path.dirname(
+            probe_path), f'{os.path.basename(self.predictor.model_path).split(".")[0]}_predictions.npy')
+        # print(f"predictions_path: {self.predictions_path}")
         dataset = get_dataset('inference_dataset', features_dir)
+        print(dataset.get_summary())
         predictions = self.__load_predictions(dataset)
-        predicted_probe_path = self.presenter.show(predictions, rna_path, probe_path, mg_path, dataset)
+        predicted_probe_path = self.presenter.show(
+            predictions, rna_path, probe_path, mg_path, dataset)
         return {'predictions': predictions,
                 'predicted_probe_path': predicted_probe_path,
                 'rna_path': rna_path,
@@ -50,7 +62,8 @@ class InferencePipeline:
         :param kwargs:
         :return:
         """
-        test_metrics = TestMetrics(predicted_probe_path, mg_path, dcc_thresh, **kwargs)
+        test_metrics = TestMetrics(
+            predicted_probe_path, mg_path, dcc_thresh, **kwargs)
         test_metrics.run_tests()
 
     def cleanup(self):
@@ -72,38 +85,66 @@ class InferencePipeline:
             else:
                 print('predictions not made before, calculating')
             predictions = self.predictor.predict(dataset)
+            print("--- after predict ---")
             np.save(self.predictions_path, predictions)
         else:
             print('predictions saved before, loading')
             predictions = np.load(self.predictions_path, allow_pickle=True)
         return predictions
 
+
 class PDBProcessor:
+    """
+    PDBProcessor class
+    """
 
     def __init__(self, odir: str, fpath: str):
         self.odir = odir
         self.fpath = fpath
-        self.process_odir = os.path.join(odir, os.path.basename(self.fpath).split('.')[0])
-        self.process_odir_combined = os.path.join(self.process_odir, "combined_dir")
+        self.process_odir = os.path.join(
+            odir, os.path.basename(self.fpath).split('.')[0])
+        print(f"process_odir: {self.process_odir}")
+        self.process_odir_combined = os.path.join(
+            self.process_odir, "combined_dir")
+        print(f"process_odir_combined: {self.process_odir_combined}")
         self.add_mg = False
 
     def process(self):
+        print("--------------------- process ---------------------")
+        print(f"self.odir: {self.odir}")
         self.__create_output_folder(self.odir)
         if os.path.isdir(self.process_odir):
             print(f"Already created raw files for {self.fpath}")
-            file_name, extension = os.path.splitext(os.path.basename(self.fpath))
+            file_name, extension = os.path.splitext(
+                os.path.basename(self.fpath))
+            file_name_dir = os.path.basename(self.fpath).split(".")[0]
+            # pdbnew_123
+            # file
+            print(f"PDBProcessor process file_name: {file_name}")
             feature_dir = os.path.join(self.process_odir, 'features')
-            probe_path = os.path.join(self.odir, file_name, "{}_probes{}".format(file_name, extension))
-            rna_path = os.path.join(self.odir, file_name, f'{file_name}_rna_{extension}')
-            mg_path = os.path.join(self.odir, file_name, f'{file_name}_mg_{extension}')
+            probe_path = os.path.join(
+                self.odir, file_name_dir, "{}_probes{}".format(file_name, extension))
+            rna_path = os.path.join(
+                self.odir, file_name_dir, f'{file_name}_rna_{extension}')
+            mg_path = os.path.join(
+                self.odir, file_name_dir, f'{file_name}_mg_{extension}')
             return feature_dir, probe_path, rna_path, mg_path
+        print("-- process -- down here")
         self.__create_output_folder(self.process_odir)
         self.__create_output_folder(self.process_odir_combined)
-        probe_path, rna_path, mg_path, file_name, extension = self.__create_surface_RNA_mg(self.fpath, self.process_odir)
+        probe_path, rna_path, mg_path, file_name, extension = self.__create_surface_RNA_mg(
+            self.fpath, self.process_odir)
         combined_name = "combined_" + file_name + extension
-        combined_path = combine_files(self.fpath, probe_path, combined_name, self.process_odir)
-        shutil.move(combined_path, self.process_odir_combined)
-        features_dir = self.__create_features(self.process_odir_combined, self.process_odir, self.add_mg)
+        combined_path = combine_files(
+            self.fpath, probe_path, combined_name, self.process_odir)
+        # shutil.move(combined_path, self.process_odir_combined)
+        shutil.copy(combined_path, self.process_odir_combined)
+        features_dir = self.__create_features(
+            self.process_odir_combined, self.process_odir, self.add_mg)
+        print(f"-- process -- done {features_dir}")
+        print(f"-- process -- done {probe_path}")
+        print(f"-- process -- done {rna_path}")
+        print(f"-- process -- done {mg_path}")
         return features_dir, probe_path, rna_path, mg_path
 
     def cleanup(self):
@@ -113,7 +154,6 @@ class PDBProcessor:
         """
         features_dir = os.path.join(self.process_odir, 'features')
         shutil.rmtree(features_dir)
-
 
     def __create_output_folder(self, odir: str):
         """
@@ -127,11 +167,10 @@ class PDBProcessor:
             print("Directory already exists")
             return
         except OSError as e:
-            print("Failed to create %s directory" %odir)
+            print("Failed to create %s directory" % odir)
             raise e
         else:
             print("Successfully created the directory %s " % odir)
-
 
     def __create_surface_RNA_mg(self, fpath: str, odir: str) -> Tuple[str, str, str, str, str]:
         """
@@ -151,7 +190,8 @@ class PDBProcessor:
         rna_path = odir + f'/{file_name}_rna_{extension}'
         mg_path = odir + f'/{file_name}_mg_{extension}'
         # subprocess run waits until process is finished so we can be pretty sure the files are made if successful.
-        subprocess.run(SURFACE_PROG + f' {fpath} {probe_path} {rna_path} {mg_path}', shell=True, cwd=WORK_DIR, stdout=subprocess.DEVNULL)
+        subprocess.run(SURFACE_PROG + f' {fpath} {probe_path} {rna_path} {mg_path}',
+                       shell=True, cwd=WORK_DIR, stdout=subprocess.DEVNULL)
         return probe_path, rna_path, mg_path, file_name, extension
 
     def __create_features(self, combined_path: str, output_dir: str, add_mg: bool = False):
@@ -169,15 +209,20 @@ class PDBProcessor:
 
         # define the name of the directory to be created
         features_dir = os.path.join(output_dir, "features")
-        feature_raw = os.path.join(features_dir, "raw")  # calling it raw is important for pyg dataset
+        # calling it raw is important for pyg dataset
+        feature_raw = os.path.join(features_dir, "raw")
         self.__create_output_folder(features_dir)
         self.__create_output_folder(feature_raw)
         self.__create_output_folder(os.path.join(features_dir, 'processed'))
         interface_dir = os.getcwd()+"/Interface_grid/"
-        file_name, extension = os.path.splitext(os.path.basename(combined_path))
+        file_name, extension = os.path.splitext(
+            os.path.basename(combined_path))
         new_combined_path = features_dir + '/' + file_name + extension
+        print(f"move: {combined_path} to: {new_combined_path}")
         shutil.move(combined_path, new_combined_path)
-        INTERFACE2GRID = interface_dir+"/interface2grid -i " + new_combined_path + " -o " + feature_raw + " --selector PB --voxel-size 1.0 -x 32 -y 32 -z 32 -r 8.0 --graph_representation --probe"
+        # shutil.copy(combined_path, new_combined_path)
+        INTERFACE2GRID = interface_dir+"/interface2grid -i " + new_combined_path + " -o " + feature_raw + \
+            " --selector PB --voxel-size 1.0 -x 32 -y 32 -z 32 -r 8.0 --graph_representation --probe"
         print(f"Running command {INTERFACE2GRID}")
         subprocess.run(INTERFACE2GRID, shell=True, cwd=interface_dir)
         if add_mg:
@@ -186,8 +231,10 @@ class PDBProcessor:
             mg_out = os.path.join(feature_raw, "mg_raw")
             self.__create_output_folder(mg_pdb)
             self.__create_output_folder(mg_out)
-            shutil.copy(self.fpath, os.path.join(mg_pdb, "original_"+os.path.basename(self.fpath)))
-            INTERFACE2GRID_MG = "interface2grid -i " + mg_pdb + " -o " + mg_out + " --selector MG --voxel-size 1.0 -x 32 -y 32 -z 32 -r 8.0 --graph_representation"
+            shutil.copy(self.fpath, os.path.join(
+                mg_pdb, "original_"+os.path.basename(self.fpath)))
+            INTERFACE2GRID_MG = "interface2grid -i " + mg_pdb + " -o " + mg_out + \
+                " --selector MG --voxel-size 1.0 -x 32 -y 32 -z 32 -r 8.0 --graph_representation"
             subprocess.run(INTERFACE2GRID_MG, shell=True, cwd=interface_dir)
             for file in os.listdir(mg_out):
                 shutil.move(os.path.join(mg_out, file), feature_raw)
@@ -197,15 +244,22 @@ class PDBProcessor:
 
 
 class Predictor:
+    """
+    Predictor Class
+    """
 
     def __init__(self, model_path: str, model_config_path: str):
         self.model_path = model_path
-        self.model = GraphGNN(base_config)  # need to pass a basic dictionary, all values will be overridden in the load
-        print(f"loading model {self.model_path}")
+        # need to pass a basic dictionary, all values will be overridden in the load
+        self.model = GraphGNN(base_config)
+        print(f"loading model: {self.model_path}")
         self.model.load(self.model_path, 'eval', model_config_path)
 
     def predict(self, dataset):
-        predictions = self.model.test(dataset, base_config['test_dict']['thresh'], inference=True)
+        print(f"in Predictor.predict() 1")
+        predictions = self.model.test(
+            dataset, base_config['test_dict']['thresh'], inference=True)
+        print(f"in Predictor.predict() 2")
         return predictions
 
 
@@ -219,13 +273,15 @@ class InferencePresenter:
 
     At the end of the process the PDB file should open in pymol for viewing.
     """
+
     def __init__(self, inference_type: str, pymol: bool, fpath: str):
         self.inference_type = inference_type
         self.inference_types = ['top', 'sax', 'cluster', 'random']
         print(f'inference type is {self.inference_type}')
         self.fpath = fpath
         if self.inference_type not in self.inference_types:
-            raise Exception(f"{self.inference_type} not a valid inference type, try again")
+            raise Exception(
+                f"{self.inference_type} not a valid inference type, try again")
         self.func_map = {'top': Top,
                          'sax': SAX,
                          'cluster': self.__cluster_present,
@@ -260,10 +316,13 @@ class InferencePresenter:
 
         prediction_label = predictions > config['positive_thresh']
         new_predictions = [0]*len(prediction_label)
-        confidence_list_positive = [x[0] for x in zip(predictions, prediction_label) if x[1] == 1]
+        confidence_list_positive = [x[0] for x in zip(
+            predictions, prediction_label) if x[1] == 1]
         index_list = list(range(len(prediction_label)))
-        index_list_positive = [x[0] for x in zip(index_list, prediction_label) if x[1] == 1]
-        top = sorted([x for x in zip(index_list_positive, confidence_list_positive)], key=lambda x: x[1])
+        index_list_positive = [x[0] for x in zip(
+            index_list, prediction_label) if x[1] == 1]
+        top = sorted([x for x in zip(index_list_positive,
+                     confidence_list_positive)], key=lambda x: x[1])
         top = top[math.floor(-len(top)*cutoff):]
         for i, _ in top:
             new_predictions[i] = 1
@@ -277,7 +336,8 @@ class InferencePresenter:
         """
 
         total_labels = len(predictions)
-        label_list = [0] * math.floor((1-cutoff) * total_labels) + [1] * math.ceil(cutoff*total_labels)
+        label_list = [
+            0] * math.floor((1-cutoff) * total_labels) + [1] * math.ceil(cutoff*total_labels)
         random.shuffle(label_list)
         return label_list
 
@@ -290,9 +350,11 @@ class InferencePresenter:
     def __create_and_present_pdb(self, new_labels, rna_path: str, probe_path: str, mg_path: str):
         root, base = os.path.split(probe_path)
         new_probe_output_path = os.path.join(root, "new_probe_"+base)
-        self.__create_new_probes_pdb(probe_path, new_probe_output_path, new_labels)
+        self.__create_new_probes_pdb(
+            probe_path, new_probe_output_path, new_labels)
         if self.pymol:
-            print("running " + "pymol " + "{} {}".format(new_probe_output_path, rna_path))
+            print("running " + "pymol " +
+                  "{} {}".format(new_probe_output_path, rna_path))
 
             subprocess.run(f"pymol " + f"{new_probe_output_path} {rna_path} {mg_path}", shell=True,
                            executable="/bin/csh", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -309,7 +371,6 @@ class InferencePresenter:
 
         with open(probe_file_path) as probe_fp:
             lines = probe_fp.readlines()
-
 
             with open(output_name, "w") as colored_fp:
                 for line, label in zip(lines, label_array):
@@ -332,6 +393,9 @@ class InferencePresenter:
 
 
 class Top:
+    """
+    Top Class
+    """
 
     IDX = 0
     COORDS = 1
@@ -365,14 +429,18 @@ class Top:
 
     def __get_candidates(self):
         candidates = []
-        print(f"Predicting with a threshold value of {config['positive_thresh']}")
+        print(
+            f"Predicting with a threshold value of {config['positive_thresh']}")
         labels = self.predictions > config['positive_thresh']
-        confidence_list_positive = [x[0] for x in zip(self.predictions, labels) if x[1] == 1]
+        confidence_list_positive = [x[0] for x in zip(
+            self.predictions, labels) if x[1] == 1]
         index_list = list(range(len(labels)))
         coordinates = extract_atom_coordinates(self.probe_path)
-        index_and_coord_list_positive = [x[0] for x in zip(zip(index_list, coordinates), labels) if x[1] == 1]
+        index_and_coord_list_positive = [x[0] for x in zip(
+            zip(index_list, coordinates), labels) if x[1] == 1]
         index_positive, coords_positive = zip(*index_and_coord_list_positive)
-        top = sorted([x for x in zip(index_positive, coords_positive, confidence_list_positive)], key=lambda x: x[2])
+        top = sorted([x for x in zip(index_positive, coords_positive,
+                     confidence_list_positive)], key=lambda x: x[2])
         top.reverse()
         for item1 in top:
             dist_func = dist_check(item1[self.COORDS], self.safe_dist)
@@ -387,6 +455,7 @@ class Top:
             else:
                 candidates.append(item1)
         return candidates
+
 
 class SAX:
     """
@@ -411,22 +480,25 @@ class SAX:
         self.rna_path = rna_path
         self.fpath = fpath
         self.combined_sax = combined_sax
-        self.SAX_SCRIPT = config['foxs_script'] + " --min_c1 1.02 --max_c1 1.02 --min_c2 1.00 --max_c2 1.00 {} {}"
+        self.SAX_SCRIPT = config['foxs_script'] + \
+            " --min_c1 1.02 --max_c1 1.02 --min_c2 1.00 --max_c2 1.00 {} {}"
         self.SAX_SCRIPT_COMBINED = config['multifoxs_script']
         self.SAX_SCRIPT_VANILLA = config['foxs_script'] + " {} {}"
+        print("SAX class __init__")
 
     def __call__(self, *args, **kwargs):
         """
         access method to the sax pipeline
         @return:
         """
+        print("SAX class __call__")
         labels = Top(**self.__dict__)()
         if self.combined_sax:
             probes_chosen_by_sax = self.__run_combined_sax_script(labels)
         else:
             probes_chosen_by_sax = self.__run_incremental_sax(labels)
+        # print(f"probes_chosen_by_sax: {probes_chosen_by_sax}")
         return probes_chosen_by_sax
-
 
     def __run_incremental_sax(self, labels):
         """
@@ -436,17 +508,18 @@ class SAX:
 
         # create files needed to run that is a combination of the RNA file with MG
 
-
         with open(self.probe_path) as probe_fp:
             lines = probe_fp.readlines()
-            #fix surface path text
+            # fix surface path text
             self.__create_required_files()
             lines = fix_probe_lines(lines)
             score = math.inf
             scores = []
             sax_labels = []
-            combine_files(self.rna_path, self.mg_path, os.path.join(self.odir, "rna_with_original_mg.pdb"), self.odir)
-            sax_output = subprocess.run(self.SAX_SCRIPT.format(os.path.join(self.odir, "rna_with_original_mg.pdb"), self.sax_path), shell=True, capture_output=True)
+            combine_files(self.rna_path, self.mg_path, os.path.join(
+                self.odir, "rna_with_original_mg.pdb"), self.odir)
+            sax_output = subprocess.run(self.SAX_SCRIPT.format(os.path.join(
+                self.odir, "rna_with_original_mg.pdb"), self.sax_path), shell=True, capture_output=True)
             sax_score = find_chi_score(sax_output.stdout)
             print(f"the beginning score is {sax_score}")
             for i, label in enumerate(labels):
@@ -457,15 +530,17 @@ class SAX:
                         sax_labels.append(0)
                         continue
 
-                combine_files(self.rna_path, os.path.join(self.odir, "fixed_pdb.pdb"), f"RNA_with_{i}_MG.pdb", self.odir)
+                combine_files(self.rna_path, os.path.join(
+                    self.odir, "fixed_pdb.pdb"), f"RNA_with_{i}_MG.pdb", self.odir)
 
-                #score sax
-                sax_output = subprocess.run(self.SAX_SCRIPT.format(os.path.join(self.odir, f"RNA_with_{i}_MG.pdb"), self.sax_path), shell=True, capture_output=True)
+                # score sax
+                sax_output = subprocess.run(self.SAX_SCRIPT.format(os.path.join(
+                    self.odir, f"RNA_with_{i}_MG.pdb"), self.sax_path), shell=True, capture_output=True)
                 sax_score = find_chi_score(sax_output.stdout)
                 print(f"the cur score is {sax_score}")
                 epsilon = 0.05
 
-                #if score is up to some epsilon or passes real score, break
+                # if score is up to some epsilon or passes real score, break
                 if sax_score <= score or sax_score - score < epsilon:
                     score = sax_score
                     scores.append(score)
@@ -486,8 +561,10 @@ class SAX:
 
         # run saxs but this time with the c1 and c2 that can be fit
         final_product_name = "RNA_final.pdb"
-        combine_files(self.rna_path, os.path.join(self.odir, "fixed_pdb.pdb"), final_product_name, self.odir)
-        sax_output = subprocess.run(self.SAX_SCRIPT_VANILLA.format(os.path.join(self.odir, final_product_name), self.sax_path), shell=True, capture_output=True)
+        combine_files(self.rna_path, os.path.join(
+            self.odir, "fixed_pdb.pdb"), final_product_name, self.odir)
+        sax_output = subprocess.run(self.SAX_SCRIPT_VANILLA.format(os.path.join(
+            self.odir, final_product_name), self.sax_path), shell=True, capture_output=True)
         sax_score = find_chi_score(sax_output.stdout)
         print(f"the final score with fitting c1 and c2 is {sax_score}")
         return sax_labels
@@ -498,7 +575,8 @@ class SAX:
         restarts iterative file.
         @return:
         """
-        fp = open(os.path.join(self.odir, self.FIXED_FILE_NAME), "w") #overwrite old file
+        fp = open(os.path.join(self.odir, self.FIXED_FILE_NAME),
+                  "w")  # overwrite old file
         fp.close()
 
     def __create_combined_required_folder_and_files(self, lines, labels):
@@ -508,9 +586,11 @@ class SAX:
         @return: mg ion folder path, saxs work directory
         """
         lines = fix_probe_lines(lines)
-        mg_folder_path = os.path.join(os.path.dirname(self.mg_path), os.path.basename(self.mg_path).split('.')[0])
+        mg_folder_path = os.path.join(os.path.dirname(
+            self.mg_path), os.path.basename(self.mg_path).split('.')[0])
         sax_work_dir = os.path.join(self.odir, 'sax_work_dir')
-        sax_work_dir_current_dat = os.path.join(sax_work_dir, os.path.basename(config["sax_path"]))
+        sax_work_dir_current_dat = os.path.join(
+            sax_work_dir, os.path.basename(config["sax_path"]))
         if os.path.exists(mg_folder_path):
             print("mg dir already exists, removing it")
             shutil.rmtree(mg_folder_path)
@@ -527,8 +607,6 @@ class SAX:
                     f.write(lines[i])
         return mg_folder_path, sax_work_dir_current_dat
 
-
-
     def __run_combined_sax_script(self, labels):
         """
         Runs combined sax script.
@@ -543,14 +621,21 @@ class SAX:
 
         with open(self.probe_path) as probe_fp:
             lines = probe_fp.readlines()
-            mg_folder_path, sax_work_directory = self.__create_combined_required_folder_and_files(lines, labels)
-
+            mg_folder_path, sax_work_directory = self.__create_combined_required_folder_and_files(
+                lines, labels)
 
         # run new script
-        all_mg_files_string = " ".join([os.path.join(mg_folder_path, x) for x in os.listdir(mg_folder_path)])
+        all_mg_files_string = " ".join(
+            [os.path.join(mg_folder_path, x) for x in os.listdir(mg_folder_path)])
         full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s {len(os.listdir(mg_folder_path))} {self.sax_path} {self.rna_path} {all_mg_files_string}'
         print("Running MultiFoXS Combination, if optimized it may take a few minutes")
-        sax_output = subprocess.run(full_sax_combined_command, shell=True, capture_output=True, cwd=sax_work_directory)
+        # print(f"cmd: {full_sax_combined_command}")
+        sax_output = subprocess.run(
+            full_sax_combined_command,
+            shell=True,
+            capture_output=True,
+            cwd=sax_work_directory,
+            check=True)
 
         # note that mg_paths are numbered according to the line in probe_fp
         score, mg_paths = self.__get_best_scoring_ensemble(sax_work_directory)
@@ -565,7 +650,6 @@ class SAX:
         print(f'The lowest scoring ensemble is {score}')
         return labels
 
-
     def __get_best_scoring_ensemble(self, sax_work_directory: str):
         """
         Given a string to the sax combination work directory find all files that are an ensemble text file.
@@ -574,15 +658,18 @@ class SAX:
         @return:
         """
 
-        ensemble_files = [file for file in os.listdir(sax_work_directory) if 'ensemble' in file and file.endswith('.txt')]
-        ensemble_files.sort(key=lambda x: int(os.path.basename(x).split('_')[2].split('.')[0]))
+        ensemble_files = [file for file in os.listdir(
+            sax_work_directory) if 'ensemble' in file and file.endswith('.txt')]
+        ensemble_files.sort(key=lambda x: int(
+            os.path.basename(x).split('_')[2].split('.')[0]))
         best_score = math.inf
         best_file = ""
         mg_paths = []
         scores = []
         best_ensemble_number = 0
         for i, file in enumerate(ensemble_files, start=1):
-            cur_score, cur_mg_paths = self.__parse_ensemble_txt(file, sax_work_directory)
+            cur_score, cur_mg_paths = self.__parse_ensemble_txt(
+                file, sax_work_directory)
             scores.append(cur_score)
             if abs(cur_score - 1) <= abs(best_score - 1):
                 best_score = cur_score
@@ -592,7 +679,8 @@ class SAX:
         print(f'predicted ensemble is of size: {len(mg_paths)}')
         self.__save_best_scoring_ensemble(best_file, best_score)
         if config['plot_sax']:
-            self.plot_sax_results(sax_work_directory, best_ensemble_number, scores)
+            self.plot_sax_results(sax_work_directory,
+                                  best_ensemble_number, scores)
         return best_score, mg_paths
 
     def __save_best_scoring_ensemble(self, file_name, score):
@@ -614,38 +702,43 @@ class SAX:
         SMALL_SIZE = 16
         MEDIUM_SIZE = 20
         BIGGER_SIZE = 24
-        plt.rcParams.update({'axes.facecolor':'white'})
+        plt.rcParams.update({'axes.facecolor': 'white'})
         plt.gcf().subplots_adjust(bottom=0.20)
         plt.gcf().subplots_adjust(left=0.15)
         plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
         plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
-        plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+        # fontsize of the x and y labels
+        plt.rc('axes', labelsize=MEDIUM_SIZE)
         plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
         plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
         plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
-        plt.gca().yaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.1f}')) # 2 decimal places
+        plt.gca().yaxis.set_major_formatter(
+            mticker.StrMethodFormatter('{x:,.1f}'))  # 2 decimal places
         plt.grid(color='gray', linewidth=0.2)
         plt.plot(list(range(1, len(scores)+1)), scores)
         plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(2))
         plt.xlabel('number of $Mg^{2+}$ ions')
         plt.ylabel('$\chi^2$ score')
-        plt.title(f'{os.path.basename(config["sax_path"])}, threshold={config["positive_thresh"]}', fontsize=BIGGER_SIZE)
-        plt.savefig(os.path.join(sax_work_directory, f'{os.path.basename(config["sax_path"])}_thresh_{config["positive_thresh"]}.png'))
+        plt.title(
+            f'{os.path.basename(config["sax_path"])}, threshold={config["positive_thresh"]}', fontsize=BIGGER_SIZE)
+        plt.savefig(os.path.join(sax_work_directory,
+                    f'{os.path.basename(config["sax_path"])}_thresh_{config["positive_thresh"]}.png'))
         plt.show()
 
     @staticmethod
     def plot_sax_results(sax_work_directory, best_ensemble_number, scores):
         SAX.plot_ensemble_scores(sax_work_directory, scores)
         PLOT_SAX_SCRIPT = f"/testing/plotFit1.pl multi_state_model_1_1_1.dat 1 1-Mg-added multi_state_model_{best_ensemble_number}_1_1.dat 2 {best_ensemble_number}-Mg-added"
-        print('running '+ PLOT_SAX_SCRIPT)
+        print('running ' + PLOT_SAX_SCRIPT)
         subprocess.run(PLOT_SAX_SCRIPT, shell=True, cwd=sax_work_directory)
-        img_path = os.path.join(sax_work_directory, "multi_state_model_1_1_1.eps")
+        img_path = os.path.join(
+            sax_work_directory, "multi_state_model_1_1_1.eps")
         img = mpimg.imread(img_path)
         plt.imshow(img)
         plt.show()
 
-    def __parse_ensemble_txt(self, text_path: str, work_directory:str):
+    def __parse_ensemble_txt(self, text_path: str, work_directory: str):
         """
         SAXS combination produces a text file named ensemble_size_x.
         The first line contains the score
@@ -658,16 +751,19 @@ class SAX:
         FIRST_LINE_SCORE_POS = 1
         MG_LINES_PATH_POS = 2
 
-        number_of_ions = int([text for text in os.path.splitext(text_path)[0].split('_') if text.isdigit()][0])
+        number_of_ions = int([text for text in os.path.splitext(
+            text_path)[0].split('_') if text.isdigit()][0])
         with open(os.path.join(work_directory, text_path), 'r') as f:
             mg_paths = []
             first_line = f.readline()
             score = float(first_line.split('|')[FIRST_LINE_SCORE_POS].strip())
             for i in range(number_of_ions):
                 cur_line = f.readline()
-                mg_paths.append(cur_line.split('|')[MG_LINES_PATH_POS].strip().split('/')[-1].split('.')[0])
+                mg_paths.append(cur_line.split(
+                    '|')[MG_LINES_PATH_POS].strip().split('/')[-1].split('.')[0])
 
-        print(f'the score for ensemble {number_of_ions} is {score}')
+        print(
+            f'the score for ensemble with: {number_of_ions} Mg ions is: {score}')
         return score, mg_paths
 
 
@@ -687,7 +783,6 @@ class TestMetrics:
     def run_tests(self):
         self.__dcc()
 
-
     def __dcc(self):
         mg_coordinates = extract_atom_coordinates(self.mg_path)
         rna_coordinates = extract_atom_coordinates(self.rna_path)
@@ -696,17 +791,24 @@ class TestMetrics:
             if find_shortest_dist(mg_coord, rna_coordinates) < config['mg_dist']:
                 relevant_mg_coordinates.append(mg_coord)
         try:
-            predicted_probe_coordinates = extract_atom_coordinates(self.predicted_probes_path)
+            predicted_probe_coordinates = extract_atom_coordinates(
+                self.predicted_probes_path)
         except ValueError as caught_exception:
-            print(f'file was empty, no positive predictions made. Exception: {caught_exception}')
+            print(
+                f'file was empty, no positive predictions made. Exception: {caught_exception}')
             with open(self.dcc_output, 'w') as f:
-                f.write(f'{self.predicted_probes_path} 0.0 {len(relevant_mg_coordinates)}\n')
+                f.write(
+                    f'{self.predicted_probes_path} 0.0 {len(relevant_mg_coordinates)}\n')
                 return
         shortest_distances = []
         for mg_coord in relevant_mg_coordinates:
-            shortest_distances.append(find_shortest_dist(mg_coord, predicted_probe_coordinates))
+            shortest_distances.append(find_shortest_dist(
+                mg_coord, predicted_probe_coordinates))
         print(f'the shortest distances are {shortest_distances}')
-        dcc_metric = sum(np.array(shortest_distances) <= self.dcc_thresh) / len(shortest_distances)
-        print(f'In total the dcc metric for this structure is {dcc_metric} out of {len(relevant_mg_coordinates)} mg atoms')
+        dcc_metric = sum(np.array(shortest_distances) <=
+                         self.dcc_thresh) / len(shortest_distances)
+        print(
+            f'In total the dcc metric for this structure is {dcc_metric} out of {len(relevant_mg_coordinates)} mg atoms')
         with open(self.dcc_output, 'w') as f:
-            f.write(f'{self.predicted_probes_path} {dcc_metric} {len(relevant_mg_coordinates)}\n')
+            f.write(
+                f'{self.predicted_probes_path} {dcc_metric} {len(relevant_mg_coordinates)}\n')

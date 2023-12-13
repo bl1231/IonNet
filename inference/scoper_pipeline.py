@@ -15,14 +15,16 @@ from inference.inference_utils import find_chi_score
 from inference.inference_config import config
 from inference.multi_foxs import MultiFoxs
 
-class SCOPER:
 
+class SCOPER:
+    """
+    Scoper Class
+    """
     KGSRNA_DIR_NAME = "KGSRNA"
     SAXS_WORKDIR_DIR_NAME = "saxs_work_dir"
     MULTIFOXS_DIR_NAME = "MultiFoXS"
 
-    def __init__(self, pdb_path: str, saxs_profile_path: str, base_dir: str, inference_type: str
-                 , model_path: str, model_config_path: str, saxs_script_path: str, multifoxs_combination_script_path: str,
+    def __init__(self, pdb_path: str, saxs_profile_path: str, base_dir: str, inference_type: str, model_path: str, model_config_path: str, saxs_script_path: str, multifoxs_combination_script_path: str,
                  add_hydrogens_script_path: str, multifoxs_script_path: str,
                  kgs_k: int = 100, top_k: int = 1, multifoxs_run: bool = False):
         """
@@ -35,8 +37,10 @@ class SCOPER:
         self.__saxs_profile_path = saxs_profile_path
         self.__kgs_k = kgs_k
         self.__base_dir = base_dir
-        self.__kgsrna_work_dir = os.path.join(self.__base_dir, self.KGSRNA_DIR_NAME)
-        self.__saxs_work_dir = os.path.join(self.__base_dir, self.SAXS_WORKDIR_DIR_NAME)
+        self.__kgsrna_work_dir = os.path.join(
+            self.__base_dir, self.KGSRNA_DIR_NAME)
+        self.__saxs_work_dir = os.path.join(
+            self.__base_dir, self.SAXS_WORKDIR_DIR_NAME)
         self.__saxs_script_path = saxs_script_path
         self.__inference_type = inference_type
         self.__model_path = model_path
@@ -63,7 +67,10 @@ class SCOPER:
         top_k_pdbs, kgs_db = KGSRNA(self.__kgsrna_work_dir, self.__pdb_path, self.__kgs_k, self.__saxs_script_path,
                                     self.__saxs_profile_path, self.__add_hydrogens_script_path, self.__top_k).compute()
         for pdb_file, _ in top_k_pdbs:  # already sorted
-            fpath = os.path.join(os.getcwd(), os.path.join(os.getcwd(), os.path.join(kgs_db, pdb_file)))
+            fpath = os.path.join(os.getcwd(), os.path.join(
+                os.getcwd(), os.path.join(kgs_db, pdb_file)))
+            # fpath is path to each "best" PDB file from KGS
+            print(f"SCOPER fpath: {fpath}")
             inference_pipeline = InferencePipeline(odir, fpath, self.__inference_type,
                                                    self.__model_path, self.__model_config_path,
                                                    foxs_script=self.__saxs_script_path,
@@ -72,12 +79,11 @@ class SCOPER:
             inference_pipeline.infer()
 
             # delete features to save space.
-            inference_pipeline.cleanup()
+            # inference_pipeline.cleanup()
         if self.__multifoxs_run:
             self.__run_multifoxs(odir)
         else:
             print("Not running MultiFoXS due to user settings.")
-
 
     def __run_multifoxs(self, odir):
         """
@@ -109,14 +115,17 @@ class KGSRNA:
         :param kgsrna_script_path: kgsrna script to run to create samples
         """
         self.__kgsrna_work_dir = kgsrna_work_dir
-        self.__kgsrna_script_path = "/usr/local/bin/kgs_explore --initial {}.HB -s {} -r 20 -c 0.4 --workingDirectory {}/"
+        # self.__kgsrna_script_path = "/usr/local/bin/kgs_explore --initial {}.kgs.pdb -s {} -r 20 -c 0.4 --workingDirectory {}/"
+        self.__kgsrna_script_path = "scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna --initial {}.HB --hbondMethod rnaview --hbondFile {}.HB.out -s {} -r 20 -c 0.4 --workingDirectory {}/"
         self.__pdb_path = pdb_path
         self.__addhydrogens_script_path = add_hydrogens_script_path
-        # self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
+        self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
+        # self.__rnaview_path = "/usr/local/bin/rnaview"
         self.__kgs_k = kgs_k
         self.__saxs_script_path = saxs_script_path
         self.__saxs_profile_path = saxs_profile_path
-        self.__pdb_workdir = os.path.join(kgsrna_work_dir, os.path.basename(pdb_path))
+        self.__pdb_workdir = os.path.join(
+            kgsrna_work_dir, os.path.basename(pdb_path))
         self.__pdb_workdir_output = os.path.join(self.__pdb_workdir, 'output')
         self.__top_k = top_k
 
@@ -132,6 +141,7 @@ class KGSRNA:
         self.get_samples()
         saxs_scores = self.calculate_foxs_scores()
         top_k_pdbs = self.get_top_k(saxs_scores)
+        print(f"top_k_pdbs: {top_k_pdbs}")
         return top_k_pdbs, self.__pdb_workdir_output
 
     def preprocess(self):
@@ -145,34 +155,36 @@ class KGSRNA:
         """
         print("Adding hydrogens")
         result = subprocess.run(f"{self.__addhydrogens_script_path} {self.__pdb_path}", shell=True,
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE
-                       )
-        print("reduce STDOUT:")
-        print(result.stdout)
-        print("reduce STDERR:")
-        print(result.stderr)
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                check=True
+                                )
+        # print("reduce STDOUT:")
+        # print(result.stdout)
+        # print("reduce STDERR:")
+        # print(result.stderr)
 
-        print("KGS prepare")
-        result = subprocess.run(f"python /home/bun/app/scripts/kgs_prepare.py -v {self.__pdb_path}.HB", shell=True,
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE
-                       )
-        print("kgs_prepare STDOUT:")
-        print(result.stdout)
-        print("kgs_prepare STDERR:")
-        print(result.stderr)
+        # print("KGS prepare")
+        # result = subprocess.run(f"python /home/bun/app/scripts/copy_of_kgs_prepare.py -v {self.__pdb_path}.HB", shell=True,
+        #                         stdout=subprocess.PIPE,
+        #                         stderr=subprocess.PIPE
+        #                         )
+        # print("kgs_prepare STDOUT:")
+        # print(result.stdout)
+        # print("kgs_prepare STDERR:")
+        # print(result.stderr)
 
         # set up environment variables for RNAVIEW (must already be installed)
-        # my_env = os.environ.copy()
-        # my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
+        my_env = os.environ.copy()
+        my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
 
-        # print("Running rnaview on input pdb")
-        # subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB", shell=True, env=my_env,
-        #                stdout=subprocess.DEVNULL,
-        #                stderr=subprocess.DEVNULL
-        #                )
-        # self.__kgsrna_clean_pdb()
+        print("Running rnaview on input pdb")
+        subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB", shell=True, env=my_env,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL,
+                       check=True
+                       )
+        self.__kgsrna_clean_pdb()
         if not os.path.isdir(self.__kgsrna_work_dir):
             os.mkdir(self.__kgsrna_work_dir)
         if not os.path.isdir(self.__pdb_workdir):
@@ -206,10 +218,12 @@ class KGSRNA:
         Method to run KGSRNA script
         :return:
         """
-        print(f"Running KGSRNA with {self.__kgs_k} samples, this may take a few minutes")
+        print(
+            f"Running KGS with {self.__kgs_k} samples, this may take a few minutes")
+        print(
+            f"CMD: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}")
         subprocess.run(
-            self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)
-            , shell=True,
+            self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir), shell=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
@@ -227,6 +241,7 @@ class KGSRNA:
                     f"{self.__saxs_script_path} {os.path.join(self.__pdb_workdir_output, pdb_file)} {self.__saxs_profile_path}",
                     shell=True, capture_output=True)
                 sax_score = find_chi_score(sax_output.stdout)
+                # print(f"sax_score: {sax_score}")
                 saxs_scores[pdb_file] = sax_score
         clean_foxs_files(self.__pdb_workdir_output)
         print("Finished scoring")
@@ -238,7 +253,8 @@ class KGSRNA:
         :param saxs_scores:
         :return:
         """
-        sorted_scores = {k: v for k, v in sorted(saxs_scores.items(), key=lambda item: item[1])}
+        sorted_scores = {k: v for k, v in sorted(
+            saxs_scores.items(), key=lambda item: item[1])}
         return list(sorted_scores.items())[:self.__top_k]
 
 
