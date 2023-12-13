@@ -119,8 +119,8 @@ class KGSRNA:
         self.__kgsrna_script_path = "scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna --initial {}.HB --hbondMethod rnaview --hbondFile {}.HB.out -s {} -r 20 -c 0.4 --workingDirectory {}/"
         self.__pdb_path = pdb_path
         self.__addhydrogens_script_path = add_hydrogens_script_path
-        self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
-        # self.__rnaview_path = "/usr/local/bin/rnaview"
+        # self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
+        self.__rnaview_path = "/usr/local/bin/rnaview"
         self.__kgs_k = kgs_k
         self.__saxs_script_path = saxs_script_path
         self.__saxs_profile_path = saxs_profile_path
@@ -159,31 +159,30 @@ class KGSRNA:
                                 stderr=subprocess.PIPE,
                                 check=True
                                 )
-        # print("reduce STDOUT:")
-        # print(result.stdout)
-        # print("reduce STDERR:")
-        # print(result.stderr)
+        # print(f"reduce STDOUT: {result.stdout}")
+        # print(f"reduce STDERR: {result.stderr}")
 
         # print("KGS prepare")
         # result = subprocess.run(f"python /home/bun/app/scripts/copy_of_kgs_prepare.py -v {self.__pdb_path}.HB", shell=True,
         #                         stdout=subprocess.PIPE,
         #                         stderr=subprocess.PIPE
         #                         )
-        # print("kgs_prepare STDOUT:")
-        # print(result.stdout)
-        # print("kgs_prepare STDERR:")
-        # print(result.stderr)
+        # print(f"kgs_prepare STDOUT: {result.stdout}")
+        # print(f"kgs_prepare STDERR: {result.stderr}")
 
         # set up environment variables for RNAVIEW (must already be installed)
         my_env = os.environ.copy()
-        my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
+        # my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
 
         print("Running rnaview on input pdb")
-        subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB", shell=True, env=my_env,
+        subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB",
+                       shell=True,
+                       env=my_env,
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL,
                        check=True
                        )
+        self.__trim_rnaview_file()
         self.__kgsrna_clean_pdb()
         if not os.path.isdir(self.__kgsrna_work_dir):
             os.mkdir(self.__kgsrna_work_dir)
@@ -212,6 +211,37 @@ class KGSRNA:
                         f.write(line)
                     illegal_flag = False
         shutil.move(TEMP_NAME, HB_FILE)
+
+    def __trim_rnaview_file(self):
+        # Define the path to your file
+        file_path = f"{self.__pdb_path}.HB.out"
+        original_file_backup = file_path + '.orig'
+
+        # Rename the original file
+        os.rename(file_path, original_file_backup)
+
+        # Initialize an empty list to hold the lines you want to keep
+        lines_to_keep = []
+
+        # Open the original file with specified encoding and process it
+        with open(original_file_backup, 'r', encoding='utf-8') as file:
+            # Read the first line and add it to the list
+            first_line = file.readline()
+            lines_to_keep.append(first_line)
+
+            # Iterate over the rest of the lines
+            for line in file:
+                # If the line contains 'BEGIN_base-pair', start keeping lines
+                if 'BEGIN_base-pair' in line:
+                    lines_to_keep.append(line)
+                    break
+
+            # Add the rest of the file to the lines to keep
+            lines_to_keep.extend(file.readlines())
+
+        # Write the processed content to a new file with the original file name
+        with open(file_path, 'w', encoding='utf-8') as new_file:
+            new_file.writelines(lines_to_keep)
 
     def get_samples(self):
         """
