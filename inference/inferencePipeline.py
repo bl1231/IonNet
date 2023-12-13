@@ -183,7 +183,8 @@ class PDBProcessor:
         :return: path of the PDB files which we created, original filename and extension
         """
 
-        WORK_DIR = os.getcwd()+"/inference/pdb_processing/"
+        # WORK_DIR = os.getcwd()+"/inference/pdb_processing/"
+        WORK_DIR = "/home/bun/IonNet/inference/pdb_processing/"
         SURFACE_PROG = WORK_DIR+"/generatePDB"
         file_name, extension = os.path.splitext(os.path.basename(fpath))
         probe_path = odir + "/{}_probes{}".format(file_name, extension)
@@ -214,7 +215,8 @@ class PDBProcessor:
         self.__create_output_folder(features_dir)
         self.__create_output_folder(feature_raw)
         self.__create_output_folder(os.path.join(features_dir, 'processed'))
-        interface_dir = os.getcwd()+"/Interface_grid/"
+        # interface_dir = os.getcwd()+"/Interface_grid/"
+        interface_dir = "/home/bun/IonNet/Interface_grid/"
         file_name, extension = os.path.splitext(
             os.path.basename(combined_path))
         new_combined_path = features_dir + '/' + file_name + extension
