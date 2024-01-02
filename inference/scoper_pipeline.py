@@ -70,7 +70,7 @@ class SCOPER:
             fpath = os.path.join(os.getcwd(), os.path.join(
                 os.getcwd(), os.path.join(kgs_db, pdb_file)))
             # fpath is path to each "best" PDB file from KGS
-            print(f"SCOPER fpath: {fpath}")
+            # print(f"SCOPER fpath: {fpath}")
             inference_pipeline = InferencePipeline(odir, fpath, self.__inference_type,
                                                    self.__model_path, self.__model_config_path,
                                                    foxs_script=self.__saxs_script_path,
@@ -250,8 +250,8 @@ class KGSRNA:
         """
         print(
             f"Running KGS with {self.__kgs_k} samples, this may take a few minutes")
-        print(
-            f"CMD: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}")
+        # print(
+        #     f"CMD: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}")
         subprocess.run(
             self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir), shell=True,
             stdout=subprocess.DEVNULL,
@@ -263,7 +263,7 @@ class KGSRNA:
         Runs FoXS over all kgsrna output pdb files.
         :return: dictionary of pdbfile name mapped to the saxs score
         """
-        print(f"Getting foxs scores for {self.__kgs_k} structures")
+        print(f"Getting FoXS scores for {self.__kgs_k} structures")
         saxs_scores = dict()
         for pdb_file in os.listdir(self.__pdb_workdir_output):
             if pdb_file.endswith(".pdb"):

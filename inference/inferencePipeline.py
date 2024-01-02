@@ -35,10 +35,10 @@ class InferencePipeline:
     def infer(self):
         # print("infer ---------------------------")
         features_dir, probe_path, rna_path, mg_path = self.processor.process()
-        print(f"--infer-- features_dir: {features_dir}")
-        print(f"--infer-- probe_path: {probe_path}")
-        print(f"--infer-- rna_path: {rna_path}")
-        print(f"--infer-- mg_path: {mg_path}")
+        # print(f"--infer-- features_dir: {features_dir}")
+        # print(f"--infer-- probe_path: {probe_path}")
+        # print(f"--infer-- rna_path: {rna_path}")
+        # print(f"--infer-- mg_path: {mg_path}")
         self.predictions_path = os.path.join(os.path.dirname(
             probe_path), f'{os.path.basename(self.predictor.model_path).split(".")[0]}_predictions.npy')
         # print(f"predictions_path: {self.predictions_path}")
@@ -85,7 +85,6 @@ class InferencePipeline:
             else:
                 print('predictions not made before, calculating')
             predictions = self.predictor.predict(dataset)
-            print("--- after predict ---")
             np.save(self.predictions_path, predictions)
         else:
             print('predictions saved before, loading')
@@ -103,10 +102,10 @@ class PDBProcessor:
         self.fpath = fpath
         self.process_odir = os.path.join(
             odir, os.path.basename(self.fpath).split('.')[0])
-        print(f"process_odir: {self.process_odir}")
+        # print(f"process_odir: {self.process_odir}")
         self.process_odir_combined = os.path.join(
             self.process_odir, "combined_dir")
-        print(f"process_odir_combined: {self.process_odir_combined}")
+        # print(f"process_odir_combined: {self.process_odir_combined}")
         self.add_mg = False
 
     def process(self):
@@ -129,7 +128,7 @@ class PDBProcessor:
             mg_path = os.path.join(
                 self.odir, file_name_dir, f'{file_name}_mg_{extension}')
             return feature_dir, probe_path, rna_path, mg_path
-        print("-- process -- down here")
+        # print("-- process -- down here")
         self.__create_output_folder(self.process_odir)
         self.__create_output_folder(self.process_odir_combined)
         probe_path, rna_path, mg_path, file_name, extension = self.__create_surface_RNA_mg(
@@ -141,10 +140,10 @@ class PDBProcessor:
         shutil.copy(combined_path, self.process_odir_combined)
         features_dir = self.__create_features(
             self.process_odir_combined, self.process_odir, self.add_mg)
-        print(f"-- process -- done {features_dir}")
-        print(f"-- process -- done {probe_path}")
-        print(f"-- process -- done {rna_path}")
-        print(f"-- process -- done {mg_path}")
+        # print(f"-- process -- done {features_dir}")
+        # print(f"-- process -- done {probe_path}")
+        # print(f"-- process -- done {rna_path}")
+        # print(f"-- process -- done {mg_path}")
         return features_dir, probe_path, rna_path, mg_path
 
     def cleanup(self):
@@ -220,12 +219,12 @@ class PDBProcessor:
         file_name, extension = os.path.splitext(
             os.path.basename(combined_path))
         new_combined_path = features_dir + '/' + file_name + extension
-        print(f"move: {combined_path} to: {new_combined_path}")
+        # print(f"move: {combined_path} to: {new_combined_path}")
         shutil.move(combined_path, new_combined_path)
         # shutil.copy(combined_path, new_combined_path)
         INTERFACE2GRID = interface_dir+"/interface2grid -i " + new_combined_path + " -o " + feature_raw + \
             " --selector PB --voxel-size 1.0 -x 32 -y 32 -z 32 -r 8.0 --graph_representation --probe"
-        print(f"Running command {INTERFACE2GRID}")
+        # print(f"Running command {INTERFACE2GRID}")
         subprocess.run(INTERFACE2GRID, shell=True, cwd=interface_dir)
         if add_mg:
             print("adding mg as well")
@@ -258,10 +257,10 @@ class Predictor:
         self.model.load(self.model_path, 'eval', model_config_path)
 
     def predict(self, dataset):
-        print(f"in Predictor.predict() 1")
+        # print(f"in Predictor.predict() 1")
         predictions = self.model.test(
             dataset, base_config['test_dict']['thresh'], inference=True)
-        print(f"in Predictor.predict() 2")
+        # print(f"in Predictor.predict() 2")
         return predictions
 
 
@@ -486,14 +485,12 @@ class SAX:
             " --min_c1 1.02 --max_c1 1.02 --min_c2 1.00 --max_c2 1.00 {} {}"
         self.SAX_SCRIPT_COMBINED = config['multifoxs_script']
         self.SAX_SCRIPT_VANILLA = config['foxs_script'] + " {} {}"
-        print("SAX class __init__")
 
     def __call__(self, *args, **kwargs):
         """
         access method to the sax pipeline
         @return:
         """
-        print("SAX class __call__")
         labels = Top(**self.__dict__)()
         if self.combined_sax:
             probes_chosen_by_sax = self.__run_combined_sax_script(labels)
