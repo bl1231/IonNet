@@ -274,7 +274,7 @@ class KGSRNA:
                 # print(f"sax_score: {sax_score}")
                 saxs_scores[pdb_file] = sax_score
         clean_foxs_files(self.__pdb_workdir_output)
-        print("Finished scoring")
+        print("Finished calculating FoXS scores")
         return saxs_scores
 
     def get_top_k(self, saxs_scores: dict):
