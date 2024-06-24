@@ -116,7 +116,7 @@ class KGSRNA:
         """
         self.__kgsrna_work_dir = kgsrna_work_dir
         # self.__kgsrna_script_path = "/usr/local/bin/kgs_explore --initial {}.kgs.pdb -s {} -r 20 -c 0.4 --workingDirectory {}/"
-        self.__kgsrna_script_path = "/home/bun/IonNet/scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna --initial {}.HB --hbondMethod rnaview --hbondFile {}.HB.out -s {} -r 20 -c 0.4 --workingDirectory {}/"
+        self.__kgsrna_script_path = "/home/scoper/IonNet/scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna --initial {}.HB --hbondMethod rnaview --hbondFile {}.HB.out -s {} -r 20 -c 0.4 --workingDirectory {}/"
         self.__pdb_path = pdb_path
         self.__addhydrogens_script_path = add_hydrogens_script_path
         # self.__rnaview_path = "scripts/scoper_scripts/RNAVIEW/bin/rnaview"
@@ -163,7 +163,7 @@ class KGSRNA:
         # print(f"reduce STDERR: {result.stderr}")
 
         # print("KGS prepare")
-        # result = subprocess.run(f"python /home/bun/app/scripts/copy_of_kgs_prepare.py -v {self.__pdb_path}.HB", shell=True,
+        # result = subprocess.run(f"python /home/scoper/app/scripts/copy_of_kgs_prepare.py -v {self.__pdb_path}.HB", shell=True,
         #                         stdout=subprocess.PIPE,
         #                         stderr=subprocess.PIPE
         #                         )
