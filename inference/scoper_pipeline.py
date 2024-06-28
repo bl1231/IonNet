@@ -106,6 +106,9 @@ class SCOPER:
 
 
 class KGSRNA:
+    """
+    KGSRNA class
+    """
 
     def __init__(self, kgsrna_work_dir: str, pdb_path: str, kgs_k: int, saxs_script_path: str,
                  saxs_profile_path: str, add_hydrogens_script_path: str, top_k: int = 1):
@@ -248,15 +251,20 @@ class KGSRNA:
         Method to run KGSRNA script
         :return:
         """
+        log_file = os.path.join(self.__pdb_workdir, 'kgsrna.log')
         print(
             f"Running KGS with {self.__kgs_k} samples, this may take a few minutes")
-        # print(
-        #     f"CMD: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}")
-        subprocess.run(
-            self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir), shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
+        print(
+            f"KGS command: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}")
+        with open(log_file, 'w', encoding='utf-8') as log:
+            subprocess.run(
+                self.__kgsrna_script_path.format(
+                    self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir),
+                shell=True,
+                stdout=log,
+                stderr=log,
+                check=True
+            )
 
     def calculate_foxs_scores(self):
         """
@@ -269,7 +277,7 @@ class KGSRNA:
             if pdb_file.endswith(".pdb"):
                 sax_output = subprocess.run(
                     f"{self.__saxs_script_path} {os.path.join(self.__pdb_workdir_output, pdb_file)} {self.__saxs_profile_path}",
-                    shell=True, capture_output=True)
+                    shell=True, capture_output=True, check=True)
                 sax_score = find_chi_score(sax_output.stdout)
                 # print(f"sax_score: {sax_score}")
                 saxs_scores[pdb_file] = sax_score
