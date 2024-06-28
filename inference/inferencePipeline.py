@@ -623,18 +623,13 @@ class SAX:
             mg_folder_path, sax_work_directory = self.__create_combined_required_folder_and_files(
                 lines, labels)
 
-        # run new script
-        # all_mg_files_string = " ".join([os.path.join(mg_folder_path, x) for x in os.listdir(mg_folder_path)])
-
-        # Get a list of files in the folder
+        # Get a list of Mg PDB files
         mg_pdb_files = os.listdir(mg_folder_path)
 
-        # Limit to 100 items or less
+        # multi_foxs_combination only takes a total of 99 PDB files
+        # so we limit the number of Mg PDB files to 99
         mg_pdb_files = mg_pdb_files[:99]
-
-        # Create the string with limited items
         all_mg_files_string = " ".join([os.path.join(mg_folder_path, x) for x in mg_pdb_files])
-        # full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s {len(os.listdir(mg_folder_path))} {self.sax_path} {self.rna_path} {all_mg_files_string}'
         full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s 99 {self.sax_path} {self.rna_path} {all_mg_files_string}'
         log_file = os.path.join(sax_work_directory, 'multi_foxs_combination.log')
         print("Running MultiFoXS Combination, if optimized it may take a few minutes")
@@ -651,9 +646,6 @@ class SAX:
                 check=True,
                 universal_newlines=True  # Ensure output is in text mode
             )
-            # Append the output to the log file
-            # log.write(f"Command: {full_sax_combined_command}\n")
-            # log.write("Output:\n")
             log.write(sax_output.stdout)  # Write the captured stdout to the log file
             log.write("\n\n")  # Separate different runs with a newline
 
@@ -689,7 +681,7 @@ class SAX:
         scores = []
         best_ensemble_number = 0
         for i, file in enumerate(ensemble_files, start=1):
-            print(f'parsing ensemble {i} {file}')
+            # print(f'parsing ensemble {i} {file}')
             cur_score, cur_mg_paths = self.__parse_ensemble_txt(
                 file, sax_work_directory)
             scores.append(cur_score)
