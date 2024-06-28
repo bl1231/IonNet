@@ -66,7 +66,9 @@ class GraphGNN():
                 # change self to have parameters of new model instead of what was in default config
                 self.__dict__.update(GraphGNN(self.config).__dict__)
         checkpoint = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        # for pyg=2.4.0 - we can load the model state dict with strict=True
+        # for pyg=2.5.2 - we need to load the model state dict with strict=False
+        self.model.load_state_dict(checkpoint['model_state_dict'], strict=True)
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.loss_module = checkpoint['loss']
         if not mode == 'eval':
