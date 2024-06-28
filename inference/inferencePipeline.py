@@ -624,10 +624,19 @@ class SAX:
                 lines, labels)
 
         # run new script
-        all_mg_files_string = " ".join(
-            [os.path.join(mg_folder_path, x) for x in os.listdir(mg_folder_path)])
-        full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s {len(os.listdir(mg_folder_path))} {self.sax_path} {self.rna_path} {all_mg_files_string}'
-        log_file = "os.path.join(sax_work_directory, 'multi_foxs_combination.log')"
+        # all_mg_files_string = " ".join([os.path.join(mg_folder_path, x) for x in os.listdir(mg_folder_path)])
+
+        # Get a list of files in the folder
+        mg_pdb_files = os.listdir(mg_folder_path)
+
+        # Limit to 100 items or less
+        mg_pdb_files = mg_pdb_files[:99]
+
+        # Create the string with limited items
+        all_mg_files_string = " ".join([os.path.join(mg_folder_path, x) for x in mg_pdb_files])
+        # full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s {len(os.listdir(mg_folder_path))} {self.sax_path} {self.rna_path} {all_mg_files_string}'
+        full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s 99 {self.sax_path} {self.rna_path} {all_mg_files_string}'
+        log_file = os.path.join(sax_work_directory, 'multi_foxs_combination.log')
         print("Running MultiFoXS Combination, if optimized it may take a few minutes")
 
         # Open the log file in append mode
