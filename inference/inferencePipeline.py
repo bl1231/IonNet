@@ -627,15 +627,28 @@ class SAX:
         all_mg_files_string = " ".join(
             [os.path.join(mg_folder_path, x) for x in os.listdir(mg_folder_path)])
         full_sax_combined_command = f'{self.SAX_SCRIPT_COMBINED} -s {len(os.listdir(mg_folder_path))} {self.sax_path} {self.rna_path} {all_mg_files_string}'
+        log_file = "os.path.join(sax_work_directory, 'multi_foxs_combination.log')"
         print("Running MultiFoXS Combination, if optimized it may take a few minutes")
-        # print(f"cmd: {full_sax_combined_command}")
-        sax_output = subprocess.run(
-            full_sax_combined_command,
-            shell=True,
-            capture_output=True,
-            cwd=sax_work_directory,
-            check=True)
 
+        # Open the log file in append mode
+        with open(log_file, "a", encoding="utf-8") as log:
+            # Run the command and capture output to both stdout and the log file
+            sax_output = subprocess.run(
+                full_sax_combined_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Redirect stderr to stdout
+                cwd=sax_work_directory,
+                check=True,
+                universal_newlines=True  # Ensure output is in text mode
+            )
+            # Append the output to the log file
+            # log.write(f"Command: {full_sax_combined_command}\n")
+            # log.write("Output:\n")
+            log.write(sax_output.stdout)  # Write the captured stdout to the log file
+            log.write("\n\n")  # Separate different runs with a newline
+
+        print("Process completed. Check the log file for details:", log_file)
         # note that mg_paths are numbered according to the line in probe_fp
         score, mg_paths = self.__get_best_scoring_ensemble(sax_work_directory)
         selected_line_indexes = []
@@ -667,6 +680,7 @@ class SAX:
         scores = []
         best_ensemble_number = 0
         for i, file in enumerate(ensemble_files, start=1):
+            print(f'parsing ensemble {i} {file}')
             cur_score, cur_mg_paths = self.__parse_ensemble_txt(
                 file, sax_work_directory)
             scores.append(cur_score)
