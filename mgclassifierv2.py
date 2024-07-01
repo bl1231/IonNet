@@ -1,11 +1,13 @@
 import argparse
 import os
+import shutil
+import sys
 
-from utils import fix_dict_in_config
 from config import base_config
 from assests import AssetManager
 from preprocessing.train_test_split import TrainTestSplit
-import preprocessing.dataset as dataset
+# import preprocessing.dataset as dataset
+from preprocessing import dataset
 import torch_geometric.loader as geom_loader
 from preprocessing import dataset as ds
 from models.training import GraphGNN
@@ -16,13 +18,48 @@ from preprocessing.preprocess_utils import create_random_sampler, evaluate_datas
 from testing.test_utils import save_test_results
 from inference.scoper_pipeline import SCOPER
 
+from utils import fix_dict_in_config
 
+def sanity_checks():
+    # Check PyG version
+    try:
+        import torch_geometric
+        if torch_geometric.__version__ != '2.4.0':
+            print('Error: PyG version must be 2.4.0.')
+            return False
+    except ImportError:
+        print('Error: PyG module is not installed.')
+        return False
+
+    # Check if KGSrna binary exists
+    kgsrna_path = '/home/scoper/IonNet/scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna'
+    if not os.path.exists(kgsrna_path) or not os.access(kgsrna_path, os.X_OK):
+        print(f'Error: {kgsrna_path} does not exist or is not executable.')
+        return False
+
+    # Check if reduce binary exists
+    reduce_path = '/usr/local/bin/reduce'
+    if not os.path.exists(reduce_path) or not os.access(reduce_path, os.X_OK):
+        print(f'Error: {reduce_path} does not exist or is not executable.')
+        return False
+
+    # Check if foxs and multi_foxs_combination commands are on the PATH
+    for cmd in ['foxs', 'multi_foxs_combination']:
+        if not shutil.which(cmd):
+            print(f'Error: {cmd} is not available on the PATH.')
+            return False
+
+    # All checks passed
+    print('All sanity checks passed.')
+    return True
 
 def preprocess(args, kfold_path=base_config['kfold_path']):
+    """
+    This function is responsible for preprocessing the dataset.
+    """
     assets = AssetManager(args.base_dir)
     dataset = ds.get_dataset(args.dataset_id, args.dataset_path, kfold_path)
     return dataset
-
 
 def split_samples(args):
     """
@@ -38,8 +75,10 @@ def split_samples(args):
                                       args.k, args.threshold, args.out_dir)
     train_test_split.split_selection()
 
-
 def train(args):
+    """
+    This function is responsible for running the training pipeline.
+    """
     config = dict()
     config.update(base_config)
     run = wandb.init(project=config['wandb_dict']['project_name'], config=config)
@@ -82,6 +121,9 @@ def train(args):
     wandb.finish()
 
 def test(args):
+    """
+    This function is responsible for running the testing pipeline.
+    """
     config = base_config
     model_path = args.model_path
     model_config_path = args.model_config_path
@@ -101,8 +143,10 @@ def test(args):
     print(predictions)
     save_test_results(args.predictions_path, model_path, predictions, labels)
 
-
 def inference(args):
+    """
+    This function is responsible for running the inference pipeline.
+    """
     fpath = args.file_path
     odir = args.output_dir
     test = args.test
@@ -122,7 +166,6 @@ def inference(args):
         pipeline.test(**kwargs)
     if cleanup:
         pipeline.cleanup()
-
 
 def scoper(args):
     """
@@ -145,12 +188,12 @@ def scoper(args):
     top_k = args.top_k
     multifoxs_run = args.multifoxs_run
 
-    scoper = SCOPER(fpath, saxs_path, base_dir, inference_type,
+    go_scoper = SCOPER(fpath, saxs_path, base_dir, inference_type,
                     model_path, config_path,
-                    saxs_script_path, multifoxs_combination_script_path, addhydrogens_script_path, multifoxs_script_path,
+                    saxs_script_path, multifoxs_combination_script_path,
+                    addhydrogens_script_path, multifoxs_script_path,
                     kgs_k, top_k, multifoxs_run)
-    kwargs = scoper.run()
-
+    go_scoper.run()
 
 def kfold_validation(args):
     """
@@ -169,11 +212,17 @@ def kfold_validation(args):
         base_config['kfold_path'] = os.path.join(kfold.kfold_dir, fold_file)
         train(args)
 
-
-    # evaluate all models when they finish
-
-
 def main():
+    """
+    This function is the main function that is called when the script is run.
+    """
+    if not sanity_checks():
+        print('Sanity checks failed, exiting.')
+        sys.exit(1)
+    
+
+    print('Starting main application...')
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-bd', '--base-dir', type=str, required=True)
     parser.add_argument('-kfp', '--kfold-path', type=str, required=False, default=None)
@@ -200,7 +249,7 @@ def main():
     train_parser.add_argument('-mn', '--model-name', type=str, required=True)
     train_parser.add_argument('-dp', '--dataset-path', type=str, required=False)
     train_parser.add_argument('-cp', '--checkpoint-path', type=str, required=False)
-    train_parser.add_argument('-s', '--sweeps', type=bool, default=False)  # to add bool simply add the flag with any text underneath
+    train_parser.add_argument('-s', '--sweeps', type=bool, default=False)
     train_parser.add_argument('-kt', '--keep-transform', type=bool, default=True, required=False)
     train_parser.add_argument('-kf', '--kfold', type=bool, default=False, required=False)
     train_parser.set_defaults(func=train)
@@ -212,7 +261,7 @@ def main():
     test_parser.add_argument('-mcp', '--model-config-path', type=str, required=True)
     test_parser.add_argument('-dp', '--dataset-path', type=str, required=False)
     test_parser.add_argument('-cp', '--checkpoint-path', type=str, required=False)
-    test_parser.add_argument('-s', '--sweeps', type=bool, default=False)  # to add bool simply add the flag with any text underneath
+    test_parser.add_argument('-s', '--sweeps', type=bool, default=False)
     test_parser.add_argument('-pp', '--predictions-path', type=str, default=None, required=True)
     test_parser.set_defaults(func=test)
 
