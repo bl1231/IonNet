@@ -761,6 +761,7 @@ class SAX:
         full_sax_combined_command = f"{self.SAX_SCRIPT_COMBINED} -s 99 {self.sax_path} {self.rna_path} {all_mg_files_string}"
         log_file = os.path.join(sax_work_directory, "multi_foxs_combination.log")
         print("Running MultiFoXS Combination, if optimized it may take a few minutes")
+        print(f"Command: {full_sax_combined_command}")
 
         # Open the log file in append mode
         with open(log_file, "a", encoding="utf-8") as log:
