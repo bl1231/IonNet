@@ -436,8 +436,18 @@ def main():
         "-mfr", "--multifoxs-run", type=bool, required=False, default=False
     )
     scoper_parser.add_argument(
-        "-fixc1c2", "--fix-multifox-c1c2", type=bool, required=False, default=False
+        "--fix-multifox-c1c2",
+        action="store_true",
+        dest="fix_multifox_c1c2",
+        help="Enable fixing multi-fox C1C2",
     )
+    scoper_parser.add_argument(
+        "--no-fix-multifox-c1c2",
+        action="store_false",
+        dest="fix_multifox_c1c2",
+        help="Disable fixing multi-fox C1C2",
+    )
+
     scoper_parser.set_defaults(func=scoper)
 
     kfold_parser = action_parsers.add_parser("kfold")
