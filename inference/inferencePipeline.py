@@ -563,6 +563,7 @@ class SAX:
         self.rna_path = rna_path
         self.fpath = fpath
         self.combined_sax = combined_sax
+        self.fixc1c2 = fixc1c2
         self.SAX_SCRIPT = (
             config["foxs_script"]
             + " --min_c1 1.02 --max_c1 1.02 --min_c2 1.00 --max_c2 1.00 {} {}"
