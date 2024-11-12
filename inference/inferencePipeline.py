@@ -337,6 +337,7 @@ class InferencePresenter:
         self.pymol = pymol
 
     def show(self, predictions, rna_path: str, probe_path: str, mg_path: str, dataset):
+        print(f"InferencePresenter.show() called with fixc1c2: {self.fixc1c2}")
         predictions = self.__sort_according_to_lines(predictions, dataset)
         predictions = torch.FloatTensor(predictions).detach().cpu().numpy()
         kwargs = {
@@ -564,6 +565,7 @@ class SAX:
         self.fpath = fpath
         self.combined_sax = combined_sax
         self.fixc1c2 = fixc1c2
+        print(f"SAX initialized with fixc1c2={self.fixc1c2}")
         self.SAX_SCRIPT = (
             config["foxs_script"]
             + " --min_c1 1.02 --max_c1 1.02 --min_c2 1.00 --max_c2 1.00 {} {}"
