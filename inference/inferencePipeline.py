@@ -550,7 +550,7 @@ class SAX:
         rna_path,
         fpath,
         combined_sax,
-        fixc1c2
+        fixc1c2,
         **kwargs,
     ):
 
