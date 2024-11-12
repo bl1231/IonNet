@@ -6,6 +6,7 @@ import sys
 from config import base_config
 from assests import AssetManager
 from preprocessing.train_test_split import TrainTestSplit
+
 # import preprocessing.dataset as dataset
 from preprocessing import dataset
 import torch_geometric.loader as geom_loader
@@ -20,46 +21,52 @@ from inference.scoper_pipeline import SCOPER
 
 from utils import fix_dict_in_config
 
+
 def sanity_checks():
     # Check PyG version
     try:
         import torch_geometric
-        if torch_geometric.__version__ != '2.4.0':
-            print('Error: PyG version must be 2.4.0.')
+
+        if torch_geometric.__version__ != "2.4.0":
+            print("Error: PyG version must be 2.4.0.")
             return False
     except ImportError:
-        print('Error: PyG module is not installed.')
+        print("Error: PyG module is not installed.")
         return False
 
     # Check if KGSrna binary exists
-    kgsrna_path = '/home/scoper/IonNet/scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna'
+    kgsrna_path = (
+        "/home/scoper/IonNet/scripts/scoper_scripts/Software/Linux64/KGSrna/KGSrna"
+    )
     if not os.path.exists(kgsrna_path) or not os.access(kgsrna_path, os.X_OK):
-        print(f'Error: {kgsrna_path} does not exist or is not executable.')
+        print(f"Error: {kgsrna_path} does not exist or is not executable.")
         return False
 
     # Check if reduce binary exists
-    reduce_path = '/usr/local/bin/reduce'
+    reduce_path = "/usr/local/bin/reduce"
     if not os.path.exists(reduce_path) or not os.access(reduce_path, os.X_OK):
-        print(f'Error: {reduce_path} does not exist or is not executable.')
+        print(f"Error: {reduce_path} does not exist or is not executable.")
         return False
 
     # Check if foxs and multi_foxs_combination commands are on the PATH
-    for cmd in ['foxs', 'multi_foxs_combination']:
+    for cmd in ["foxs", "multi_foxs_combination"]:
         if not shutil.which(cmd):
-            print(f'Error: {cmd} is not available on the PATH.')
+            print(f"Error: {cmd} is not available on the PATH.")
             return False
 
     # All checks passed
-    print('All sanity checks passed.')
+    print("All sanity checks passed.")
     return True
 
-def preprocess(args, kfold_path=base_config['kfold_path']):
+
+def preprocess(args, kfold_path=base_config["kfold_path"]):
     """
     This function is responsible for preprocessing the dataset.
     """
     assets = AssetManager(args.base_dir)
     dataset = ds.get_dataset(args.dataset_id, args.dataset_path, kfold_path)
     return dataset
+
 
 def split_samples(args):
     """
@@ -71,9 +78,17 @@ def split_samples(args):
 
     If successful the split is written to a file and saved.
     """
-    train_test_split = TrainTestSplit(args.base_dir, args.split_regime, args.similarity_matrix, args.train_percentage,
-                                      args.k, args.threshold, args.out_dir)
+    train_test_split = TrainTestSplit(
+        args.base_dir,
+        args.split_regime,
+        args.similarity_matrix,
+        args.train_percentage,
+        args.k,
+        args.threshold,
+        args.out_dir,
+    )
     train_test_split.split_selection()
+
 
 def train(args):
     """
@@ -81,7 +96,7 @@ def train(args):
     """
     config = dict()
     config.update(base_config)
-    run = wandb.init(project=config['wandb_dict']['project_name'], config=config)
+    run = wandb.init(project=config["wandb_dict"]["project_name"], config=config)
     if run and run.name != None:
         wandb.config["run_name"] = run.name
         config["run_name"] = run.name
@@ -89,36 +104,60 @@ def train(args):
         fix_dict_in_config(wandb)
         config = wandb.config
     dataset = preprocess(args, config["kfold_path"])
-    train_data, val_data, test_data = dataset.train_val_test_split(config['split_mode'])
+    train_data, val_data, test_data = dataset.train_val_test_split(config["split_mode"])
 
     # get some information about the datasets
-    evaluate_dataset(train_data, 'train_data')
-    evaluate_dataset(val_data, 'val_data')
-    evaluate_dataset(test_data, 'test_data')
+    evaluate_dataset(train_data, "train_data")
+    evaluate_dataset(val_data, "val_data")
+    evaluate_dataset(test_data, "test_data")
     if not args.keep_transform:
-        print('removing transform')
+        print("removing transform")
         val_data.transform = None
         test_data.transform = None
     if args.kfold:
         random_sampler = create_random_sampler(train_data)
-        train_graph_loader = geom_loader.DataLoader(train_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'], sampler=random_sampler)
+        train_graph_loader = geom_loader.DataLoader(
+            train_data,
+            config["train_dict"]["batch_size"],
+            num_workers=config["train_dict"]["num_workers"],
+            sampler=random_sampler,
+        )
     else:
-        train_graph_loader = geom_loader.DataLoader(train_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'], shuffle=True)
-    val_graph_loader = geom_loader.DataLoader(val_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'])
-    test_graph_loader = geom_loader.DataLoader(test_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'])
+        train_graph_loader = geom_loader.DataLoader(
+            train_data,
+            config["train_dict"]["batch_size"],
+            num_workers=config["train_dict"]["num_workers"],
+            shuffle=True,
+        )
+    val_graph_loader = geom_loader.DataLoader(
+        val_data,
+        config["train_dict"]["batch_size"],
+        num_workers=config["train_dict"]["num_workers"],
+    )
+    test_graph_loader = geom_loader.DataLoader(
+        test_data,
+        config["train_dict"]["batch_size"],
+        num_workers=config["train_dict"]["num_workers"],
+    )
 
     model = GraphGNN(config)
-    single_node = "SINGLE_NODE" in config['model_name']
+    single_node = "SINGLE_NODE" in config["model_name"]
 
-    if config['test']:
+    if config["test"]:
         model.train(train_graph_loader, val_graph_loader, single_node)
         # for a k-fold validation the test will be the validation set.
         print("training completed, beginning test on the test set.")
-        model.test(test_graph_loader, config['test_dict']['thresh'], single_node, inference=True)
+        model.test(
+            test_graph_loader,
+            config["test_dict"]["thresh"],
+            single_node,
+            inference=True,
+        )
     else:
         # this is done for kfold validation where there is no validation set.
         model.train(train_graph_loader, test_graph_loader, single_node)
     wandb.finish()
+
 
 def test(args):
     """
@@ -128,20 +167,38 @@ def test(args):
     model_path = args.model_path
     model_config_path = args.model_config_path
     model = GraphGNN(base_config)
-    print('loading model')
-    model.load(model_path, 'eval', model_config_path)
-    print('getting dataset')
+    print("loading model")
+    model.load(model_path, "eval", model_config_path)
+    print("getting dataset")
     dataset = ds.get_dataset(args.dataset_id, args.dataset_path, config["kfold_path"])
-    print('splitting dataset')
-    train_data, val_data, test_data = dataset.train_val_test_split(config['split_mode'])
+    print("splitting dataset")
+    train_data, val_data, test_data = dataset.train_val_test_split(config["split_mode"])
     val_data.transform = None
     test_data.transform = None
-    train_graph_loader = geom_loader.DataLoader(train_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'], shuffle=True)
-    val_graph_loader = geom_loader.DataLoader(val_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'])
-    test_graph_loader = geom_loader.DataLoader(test_data, config['train_dict']['batch_size'], num_workers=config['train_dict']['num_workers'])
-    predictions, labels = model.test(test_graph_loader, base_config['test_dict']['thresh'], inference=base_config['inference'])
+    train_graph_loader = geom_loader.DataLoader(
+        train_data,
+        config["train_dict"]["batch_size"],
+        num_workers=config["train_dict"]["num_workers"],
+        shuffle=True,
+    )
+    val_graph_loader = geom_loader.DataLoader(
+        val_data,
+        config["train_dict"]["batch_size"],
+        num_workers=config["train_dict"]["num_workers"],
+    )
+    test_graph_loader = geom_loader.DataLoader(
+        test_data,
+        config["train_dict"]["batch_size"],
+        num_workers=config["train_dict"]["num_workers"],
+    )
+    predictions, labels = model.test(
+        test_graph_loader,
+        base_config["test_dict"]["thresh"],
+        inference=base_config["inference"],
+    )
     print(predictions)
     save_test_results(args.predictions_path, model_path, predictions, labels)
+
 
 def inference(args):
     """
@@ -159,13 +216,24 @@ def inference(args):
     overwrite = args.overwrite
     foxs_script = args.foxs_script
     multifoxs_script = args.multifoxs_script
-    pipeline = InferencePipeline(odir, fpath, inference_type, model_path, config_path, pymol, overwrite, foxs_script, multifoxs_script)
+    pipeline = InferencePipeline(
+        odir,
+        fpath,
+        inference_type,
+        model_path,
+        config_path,
+        pymol,
+        overwrite,
+        foxs_script,
+        multifoxs_script,
+    )
     kwargs = pipeline.infer()
-    kwargs['dcc_output'] = dcc_output
+    kwargs["dcc_output"] = dcc_output
     if test:
         pipeline.test(**kwargs)
     if cleanup:
         pipeline.cleanup()
+
 
 def scoper(args):
     """
@@ -187,13 +255,26 @@ def scoper(args):
     multifoxs_combination_script_path = args.multifoxs_combination_script
     top_k = args.top_k
     multifoxs_run = args.multifoxs_run
+    fixc1c2 = args.fix_multifox_c1c2
 
-    go_scoper = SCOPER(fpath, saxs_path, base_dir, inference_type,
-                    model_path, config_path,
-                    saxs_script_path, multifoxs_combination_script_path,
-                    addhydrogens_script_path, multifoxs_script_path,
-                    kgs_k, top_k, multifoxs_run)
+    go_scoper = SCOPER(
+        fpath,
+        saxs_path,
+        base_dir,
+        inference_type,
+        model_path,
+        config_path,
+        saxs_script_path,
+        multifoxs_combination_script_path,
+        addhydrogens_script_path,
+        multifoxs_script_path,
+        kgs_k,
+        top_k,
+        multifoxs_run,
+        fixc1c2,
+    )
     go_scoper.run()
+
 
 def kfold_validation(args):
     """
@@ -208,108 +289,183 @@ def kfold_validation(args):
     kfold(args.dataset_path)
     # call train with each kfold file generated on bio08
     for fold_file in os.listdir(kfold.kfold_dir):
-        print(f'beginning fold {fold_file}')
-        base_config['kfold_path'] = os.path.join(kfold.kfold_dir, fold_file)
+        print(f"beginning fold {fold_file}")
+        base_config["kfold_path"] = os.path.join(kfold.kfold_dir, fold_file)
         train(args)
+
 
 def main():
     """
     This function is the main function that is called when the script is run.
     """
     if not sanity_checks():
-        print('Sanity checks failed, exiting.')
+        print("Sanity checks failed, exiting.")
         sys.exit(1)
-    
 
-    print('Starting main application...')
+    print("Starting main application...")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-bd', '--base-dir', type=str, required=True)
-    parser.add_argument('-kfp', '--kfold-path', type=str, required=False, default=None)
+    parser.add_argument("-bd", "--base-dir", type=str, required=True)
+    parser.add_argument("-kfp", "--kfold-path", type=str, required=False, default=None)
 
-    action_parsers = parser.add_subparsers(dest='action')
+    action_parsers = parser.add_subparsers(dest="action")
     action_parsers.required = True
 
-    preprocess_parser = action_parsers.add_parser('preprocess')
-    preprocess_parser.add_argument('-di', '--dataset-id', type=str, choices=dataset.supported_datasets, required=True)
-    preprocess_parser.add_argument('-dp', '--dataset-path', type=str, required=False)
+    preprocess_parser = action_parsers.add_parser("preprocess")
+    preprocess_parser.add_argument(
+        "-di",
+        "--dataset-id",
+        type=str,
+        choices=dataset.supported_datasets,
+        required=True,
+    )
+    preprocess_parser.add_argument("-dp", "--dataset-path", type=str, required=False)
     preprocess_parser.set_defaults(func=preprocess)
 
-    split_samples_parser = action_parsers.add_parser('split-samples')
-    split_samples_parser.add_argument('-splt', '--split-regime', type=int, required=True)
-    split_samples_parser.add_argument('-sim', '--similarity-matrix', type=str, required=True)
-    split_samples_parser.add_argument('-tp', '--train-percentage', type=float, required=True)
-    split_samples_parser.add_argument('-th', '--threshold', type=float, required=True)
-    split_samples_parser.add_argument('-k', '--k', type=int, required=True)
-    split_samples_parser.add_argument('-od', '--out-dir', type=str, required=True)
+    split_samples_parser = action_parsers.add_parser("split-samples")
+    split_samples_parser.add_argument(
+        "-splt", "--split-regime", type=int, required=True
+    )
+    split_samples_parser.add_argument(
+        "-sim", "--similarity-matrix", type=str, required=True
+    )
+    split_samples_parser.add_argument(
+        "-tp", "--train-percentage", type=float, required=True
+    )
+    split_samples_parser.add_argument("-th", "--threshold", type=float, required=True)
+    split_samples_parser.add_argument("-k", "--k", type=int, required=True)
+    split_samples_parser.add_argument("-od", "--out-dir", type=str, required=True)
     split_samples_parser.set_defaults(func=split_samples)
 
-    train_parser = action_parsers.add_parser('train')
-    train_parser.add_argument('-di', '--dataset-id', type=str, choices=dataset.supported_datasets, required=True)
-    train_parser.add_argument('-mn', '--model-name', type=str, required=True)
-    train_parser.add_argument('-dp', '--dataset-path', type=str, required=False)
-    train_parser.add_argument('-cp', '--checkpoint-path', type=str, required=False)
-    train_parser.add_argument('-s', '--sweeps', type=bool, default=False)
-    train_parser.add_argument('-kt', '--keep-transform', type=bool, default=True, required=False)
-    train_parser.add_argument('-kf', '--kfold', type=bool, default=False, required=False)
+    train_parser = action_parsers.add_parser("train")
+    train_parser.add_argument(
+        "-di",
+        "--dataset-id",
+        type=str,
+        choices=dataset.supported_datasets,
+        required=True,
+    )
+    train_parser.add_argument("-mn", "--model-name", type=str, required=True)
+    train_parser.add_argument("-dp", "--dataset-path", type=str, required=False)
+    train_parser.add_argument("-cp", "--checkpoint-path", type=str, required=False)
+    train_parser.add_argument("-s", "--sweeps", type=bool, default=False)
+    train_parser.add_argument(
+        "-kt", "--keep-transform", type=bool, default=True, required=False
+    )
+    train_parser.add_argument(
+        "-kf", "--kfold", type=bool, default=False, required=False
+    )
     train_parser.set_defaults(func=train)
 
-    test_parser = action_parsers.add_parser('test')
-    test_parser.add_argument('-di', '--dataset-id', type=str, choices=dataset.supported_datasets, required=True)
-    test_parser.add_argument('-mn', '--model-name', type=str, required=True)
-    test_parser.add_argument('-mp', '--model-path', type=str, required=True)
-    test_parser.add_argument('-mcp', '--model-config-path', type=str, required=True)
-    test_parser.add_argument('-dp', '--dataset-path', type=str, required=False)
-    test_parser.add_argument('-cp', '--checkpoint-path', type=str, required=False)
-    test_parser.add_argument('-s', '--sweeps', type=bool, default=False)
-    test_parser.add_argument('-pp', '--predictions-path', type=str, default=None, required=True)
+    test_parser = action_parsers.add_parser("test")
+    test_parser.add_argument(
+        "-di",
+        "--dataset-id",
+        type=str,
+        choices=dataset.supported_datasets,
+        required=True,
+    )
+    test_parser.add_argument("-mn", "--model-name", type=str, required=True)
+    test_parser.add_argument("-mp", "--model-path", type=str, required=True)
+    test_parser.add_argument("-mcp", "--model-config-path", type=str, required=True)
+    test_parser.add_argument("-dp", "--dataset-path", type=str, required=False)
+    test_parser.add_argument("-cp", "--checkpoint-path", type=str, required=False)
+    test_parser.add_argument("-s", "--sweeps", type=bool, default=False)
+    test_parser.add_argument(
+        "-pp", "--predictions-path", type=str, default=None, required=True
+    )
     test_parser.set_defaults(func=test)
 
-    inference_parser = action_parsers.add_parser('inference')
-    inference_parser.add_argument('-o', '--output-dir', type=str,  required=True)
-    inference_parser.add_argument('-fp', '--file-path', type=str, required=True)
-    inference_parser.add_argument('-it', '--inference-type', type=str, required=True)
-    inference_parser.add_argument('-mp', '--model-path', type=str, required=True)
-    inference_parser.add_argument('-do', '--dcc-output', type=str, required=True)
-    inference_parser.add_argument('-cp', '--config-path', type=str, required=False, default=None)
-    inference_parser.add_argument('-pymol', '--pymol', type=bool, required=False, default=False)
-    inference_parser.add_argument('-ov', '--overwrite', type=bool, required=False, default=False)
-    inference_parser.add_argument('-t', '--test', type=bool, required=False, default=False)
-    inference_parser.add_argument('-cu', '--cleanup', type=bool, required=False, default=False)
-    inference_parser.add_argument('-fs', '--foxs-script', type=str, required=True, default=False)
-    inference_parser.add_argument('-mfs', '--multifoxs-script', type=str, required=True, default=False)
+    inference_parser = action_parsers.add_parser("inference")
+    inference_parser.add_argument("-o", "--output-dir", type=str, required=True)
+    inference_parser.add_argument("-fp", "--file-path", type=str, required=True)
+    inference_parser.add_argument("-it", "--inference-type", type=str, required=True)
+    inference_parser.add_argument("-mp", "--model-path", type=str, required=True)
+    inference_parser.add_argument("-do", "--dcc-output", type=str, required=True)
+    inference_parser.add_argument(
+        "-cp", "--config-path", type=str, required=False, default=None
+    )
+    inference_parser.add_argument(
+        "-pymol", "--pymol", type=bool, required=False, default=False
+    )
+    inference_parser.add_argument(
+        "-ov", "--overwrite", type=bool, required=False, default=False
+    )
+    inference_parser.add_argument(
+        "-t", "--test", type=bool, required=False, default=False
+    )
+    inference_parser.add_argument(
+        "-cu", "--cleanup", type=bool, required=False, default=False
+    )
+    inference_parser.add_argument(
+        "-fs", "--foxs-script", type=str, required=True, default=False
+    )
+    inference_parser.add_argument(
+        "-mfs", "--multifoxs-script", type=str, required=True, default=False
+    )
     inference_parser.set_defaults(func=inference)
 
-    scoper_parser = action_parsers.add_parser('scoper')
-    scoper_parser.add_argument('-fp', '--file-path', type=str,  required=True)
-    scoper_parser.add_argument('-sp', '--saxs-path', type=str,  required=True)
-    scoper_parser.add_argument('-mp', '--model-path', type=str, required=True)
-    scoper_parser.add_argument('-cp', '--config-path', type=str, required=False, default=None)
-    scoper_parser.add_argument('-it', '--inference-type', type=str, required=True)
-    scoper_parser.add_argument('-fs', '--foxs-script', type=str, required=True, default=False)
-    scoper_parser.add_argument('-mfs', '--multifoxs-script', type=str, required=True, default=False)
-    scoper_parser.add_argument('-mfcs', '--multifoxs-combination-script', type=str, required=True, default=False)
-    scoper_parser.add_argument('-ahs', '--addhydrogens-script', type=str, required=True, default=False)
-    scoper_parser.add_argument('-kk', '--kgs-k', type=int, required=False, default=100)
-    scoper_parser.add_argument('-tk', '--top-k', type=int, required=False, default=1)
-    scoper_parser.add_argument('-mfr', '--multifoxs-run', type=bool, required=False, default=False)
+    scoper_parser = action_parsers.add_parser("scoper")
+    scoper_parser.add_argument("-fp", "--file-path", type=str, required=True)
+    scoper_parser.add_argument("-sp", "--saxs-path", type=str, required=True)
+    scoper_parser.add_argument("-mp", "--model-path", type=str, required=True)
+    scoper_parser.add_argument(
+        "-cp", "--config-path", type=str, required=False, default=None
+    )
+    scoper_parser.add_argument("-it", "--inference-type", type=str, required=True)
+    scoper_parser.add_argument(
+        "-fs", "--foxs-script", type=str, required=True, default=False
+    )
+    scoper_parser.add_argument(
+        "-mfs", "--multifoxs-script", type=str, required=True, default=False
+    )
+    scoper_parser.add_argument(
+        "-mfcs",
+        "--multifoxs-combination-script",
+        type=str,
+        required=True,
+        default=False,
+    )
+    scoper_parser.add_argument(
+        "-ahs", "--addhydrogens-script", type=str, required=True, default=False
+    )
+    scoper_parser.add_argument("-kk", "--kgs-k", type=int, required=False, default=100)
+    scoper_parser.add_argument("-tk", "--top-k", type=int, required=False, default=1)
+    scoper_parser.add_argument(
+        "-mfr", "--multifoxs-run", type=bool, required=False, default=False
+    )
+    scoper_parser.add_argument(
+        "-fixc1c2", "--fix-multifox-c1c2", type=bool, required=False, default=False
+    )
     scoper_parser.set_defaults(func=scoper)
 
-    kfold_parser = action_parsers.add_parser('kfold')
-    kfold_parser.add_argument('-k', '--number-of-folds', type=int, required=True, default=5)
-    kfold_parser.add_argument('-kdir','--kfold-dir', type=str, required=True)
-    kfold_parser.add_argument('-di', '--dataset-id', type=str, choices=dataset.supported_datasets, required=True)
-    kfold_parser.add_argument('-mn', '--model-name', type=str, required=True)
-    kfold_parser.add_argument('-dp', '--dataset-path', type=str, required=False)
-    kfold_parser.add_argument('-cp', '--checkpoint-path', type=str, required=False)
-    kfold_parser.add_argument('-s', '--sweeps', type=bool, default=False)  # to add bool simply add the flag with any text underneath
-    kfold_parser.add_argument('-kf', '--kfold', type=bool, default=True, required=True)
-    kfold_parser.add_argument('-kt', '--keep-transform', type=bool, default=True, required=True)
+    kfold_parser = action_parsers.add_parser("kfold")
+    kfold_parser.add_argument(
+        "-k", "--number-of-folds", type=int, required=True, default=5
+    )
+    kfold_parser.add_argument("-kdir", "--kfold-dir", type=str, required=True)
+    kfold_parser.add_argument(
+        "-di",
+        "--dataset-id",
+        type=str,
+        choices=dataset.supported_datasets,
+        required=True,
+    )
+    kfold_parser.add_argument("-mn", "--model-name", type=str, required=True)
+    kfold_parser.add_argument("-dp", "--dataset-path", type=str, required=False)
+    kfold_parser.add_argument("-cp", "--checkpoint-path", type=str, required=False)
+    kfold_parser.add_argument(
+        "-s", "--sweeps", type=bool, default=False
+    )  # to add bool simply add the flag with any text underneath
+    kfold_parser.add_argument("-kf", "--kfold", type=bool, default=True, required=True)
+    kfold_parser.add_argument(
+        "-kt", "--keep-transform", type=bool, default=True, required=True
+    )
     kfold_parser.set_defaults(func=kfold_validation)
 
     args = parser.parse_args()
     args.func(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

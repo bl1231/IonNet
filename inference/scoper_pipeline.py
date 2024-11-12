@@ -7,6 +7,7 @@ for it to run.
 The program requires the following programs to be installed and inserted into the path env variable
 or bin: KGSRNA, foxs (IMP), multifoxs (IMP) and reduce
 """
+
 import os
 import subprocess
 import shutil
@@ -20,13 +21,28 @@ class SCOPER:
     """
     Scoper Class
     """
+
     KGSRNA_DIR_NAME = "KGSRNA"
     SAXS_WORKDIR_DIR_NAME = "saxs_work_dir"
     MULTIFOXS_DIR_NAME = "MultiFoXS"
 
-    def __init__(self, pdb_path: str, saxs_profile_path: str, base_dir: str, inference_type: str, model_path: str, model_config_path: str, saxs_script_path: str, multifoxs_combination_script_path: str,
-                 add_hydrogens_script_path: str, multifoxs_script_path: str,
-                 kgs_k: int = 100, top_k: int = 1, multifoxs_run: bool = False):
+    def __init__(
+        self,
+        pdb_path: str,
+        saxs_profile_path: str,
+        base_dir: str,
+        inference_type: str,
+        model_path: str,
+        model_config_path: str,
+        saxs_script_path: str,
+        multifoxs_combination_script_path: str,
+        add_hydrogens_script_path: str,
+        multifoxs_script_path: str,
+        kgs_k: int = 100,
+        top_k: int = 1,
+        multifoxs_run: bool = False,
+        fixc1c2: bool = False,
+    ):
         """
         constructor for scoper, sets all paths needed to run the pipeline
         :param pdb_path:
@@ -37,10 +53,8 @@ class SCOPER:
         self.__saxs_profile_path = saxs_profile_path
         self.__kgs_k = kgs_k
         self.__base_dir = base_dir
-        self.__kgsrna_work_dir = os.path.join(
-            self.__base_dir, self.KGSRNA_DIR_NAME)
-        self.__saxs_work_dir = os.path.join(
-            self.__base_dir, self.SAXS_WORKDIR_DIR_NAME)
+        self.__kgsrna_work_dir = os.path.join(self.__base_dir, self.KGSRNA_DIR_NAME)
+        self.__saxs_work_dir = os.path.join(self.__base_dir, self.SAXS_WORKDIR_DIR_NAME)
         self.__saxs_script_path = saxs_script_path
         self.__inference_type = inference_type
         self.__model_path = model_path
@@ -50,6 +64,7 @@ class SCOPER:
         self.__top_k = top_k
         self.__multifoxs_run = multifoxs_run
         self.__multifoxs_script_path = multifoxs_script_path
+        self.__fixc1c2 = fixc1c2
 
     def run(self):
         """
@@ -64,18 +79,32 @@ class SCOPER:
         """
 
         odir = os.path.join(os.getcwd(), self.__base_dir)
-        top_k_pdbs, kgs_db = KGSRNA(self.__kgsrna_work_dir, self.__pdb_path, self.__kgs_k, self.__saxs_script_path,
-                                    self.__saxs_profile_path, self.__add_hydrogens_script_path, self.__top_k).compute()
+        top_k_pdbs, kgs_db = KGSRNA(
+            self.__kgsrna_work_dir,
+            self.__pdb_path,
+            self.__kgs_k,
+            self.__saxs_script_path,
+            self.__saxs_profile_path,
+            self.__add_hydrogens_script_path,
+            self.__top_k,
+        ).compute()
         for pdb_file, _ in top_k_pdbs:  # already sorted
-            fpath = os.path.join(os.getcwd(), os.path.join(
-                os.getcwd(), os.path.join(kgs_db, pdb_file)))
+            fpath = os.path.join(
+                os.getcwd(), os.path.join(os.getcwd(), os.path.join(kgs_db, pdb_file))
+            )
             # fpath is path to each "best" PDB file from KGS
             # print(f"SCOPER fpath: {fpath}")
-            inference_pipeline = InferencePipeline(odir, fpath, self.__inference_type,
-                                                   self.__model_path, self.__model_config_path,
-                                                   foxs_script=self.__saxs_script_path,
-                                                   multifoxs_script=self.__multifoxs_combination_script_path)
-            config['sax_path'] = self.__saxs_profile_path
+            inference_pipeline = InferencePipeline(
+                odir,
+                fpath,
+                self.__inference_type,
+                self.__model_path,
+                self.__model_config_path,
+                foxs_script=self.__saxs_script_path,
+                multifoxs_script=self.__multifoxs_combination_script_path,
+                fixc1c2=self.__fixc1c2,
+            )
+            config["sax_path"] = self.__saxs_profile_path
             inference_pipeline.infer()
 
             # delete features to save space.
@@ -98,9 +127,14 @@ class SCOPER:
             return
         if not os.path.isdir(os.path.join(os.getcwd(), self.MULTIFOXS_DIR_NAME)):
             os.mkdir(self.MULTIFOXS_DIR_NAME)
-        multifoxs = MultiFoxs([odir], self.MULTIFOXS_DIR_NAME, self.__saxs_profile_path, overwrite=True,
-                              foxs_script_path=self.__saxs_script_path,
-                              multifoxs_script_path=self.__multifoxs_script_path)
+        multifoxs = MultiFoxs(
+            [odir],
+            self.MULTIFOXS_DIR_NAME,
+            self.__saxs_profile_path,
+            overwrite=True,
+            foxs_script_path=self.__saxs_script_path,
+            multifoxs_script_path=self.__multifoxs_script_path,
+        )
         result = multifoxs.run()
         print(f"MultiFoXS lowest score is {result}")
 
@@ -110,8 +144,16 @@ class KGSRNA:
     KGSRNA class
     """
 
-    def __init__(self, kgsrna_work_dir: str, pdb_path: str, kgs_k: int, saxs_script_path: str,
-                 saxs_profile_path: str, add_hydrogens_script_path: str, top_k: int = 1):
+    def __init__(
+        self,
+        kgsrna_work_dir: str,
+        pdb_path: str,
+        kgs_k: int,
+        saxs_script_path: str,
+        saxs_profile_path: str,
+        add_hydrogens_script_path: str,
+        top_k: int = 1,
+    ):
         """
         Initialize kgsrna object
         :param kgsrna_work_dir: where kgsrna samples will be after preprocess
@@ -127,9 +169,8 @@ class KGSRNA:
         self.__kgs_k = kgs_k
         self.__saxs_script_path = saxs_script_path
         self.__saxs_profile_path = saxs_profile_path
-        self.__pdb_workdir = os.path.join(
-            kgsrna_work_dir, os.path.basename(pdb_path))
-        self.__pdb_workdir_output = os.path.join(self.__pdb_workdir, 'output')
+        self.__pdb_workdir = os.path.join(kgsrna_work_dir, os.path.basename(pdb_path))
+        self.__pdb_workdir_output = os.path.join(self.__pdb_workdir, "output")
         self.__top_k = top_k
 
     def compute(self):
@@ -138,7 +179,7 @@ class KGSRNA:
         2. preprocess and runs kgsrna on pdbfile
         3. runs foxs for each sample in kgsrna
         4. sorts saxs scores and returns the top kgs_k structures
-        :return: 
+        :return:
         """
         self.preprocess()
         self.get_samples()
@@ -157,11 +198,13 @@ class KGSRNA:
         :return:
         """
         print("Adding hydrogens")
-        result = subprocess.run(f"{self.__addhydrogens_script_path} {self.__pdb_path}", shell=True,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                check=True
-                                )
+        result = subprocess.run(
+            f"{self.__addhydrogens_script_path} {self.__pdb_path}",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
         # print(f"reduce STDOUT: {result.stdout}")
         # print(f"reduce STDERR: {result.stderr}")
 
@@ -178,13 +221,14 @@ class KGSRNA:
         # my_env["RNAVIEW"] = f"{os.getcwd()}/scripts/scoper_scripts/RNAVIEW/"
 
         print("Running rnaview on input pdb")
-        subprocess.run(f"{self.__rnaview_path} {self.__pdb_path}.HB",
-                       shell=True,
-                       env=my_env,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL,
-                       check=True
-                       )
+        subprocess.run(
+            f"{self.__rnaview_path} {self.__pdb_path}.HB",
+            shell=True,
+            env=my_env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
         self.__trim_rnaview_file()
         self.__kgsrna_clean_pdb()
         if not os.path.isdir(self.__kgsrna_work_dir):
@@ -198,13 +242,26 @@ class KGSRNA:
         clean pdb from unwanted lines
         :return:
         """
-        ILLEGAL_ATOMS_LIST = ["HO'5", "H21", "H22", "H41", "H42", "H61", "H62", "HO'1",
-                              "HO'2", "H5'1", "H5'2", "H3T", "H5T"]
-        TEMP_NAME = 'temp.pdb'
+        ILLEGAL_ATOMS_LIST = [
+            "HO'5",
+            "H21",
+            "H22",
+            "H41",
+            "H42",
+            "H61",
+            "H62",
+            "HO'1",
+            "HO'2",
+            "H5'1",
+            "H5'2",
+            "H3T",
+            "H5T",
+        ]
+        TEMP_NAME = "temp.pdb"
         HB_FILE = f"{self.__pdb_path}.HB"
         illegal_flag = False
-        with open(TEMP_NAME, 'w') as f:
-            with open(HB_FILE, 'r') as pdb_file:
+        with open(TEMP_NAME, "w") as f:
+            with open(HB_FILE, "r") as pdb_file:
                 lines = pdb_file.readlines()
                 for line in lines:
                     for illegal_atom in ILLEGAL_ATOMS_LIST:
@@ -218,7 +275,7 @@ class KGSRNA:
     def __trim_rnaview_file(self):
         # Define the path to your file
         file_path = f"{self.__pdb_path}.HB.out"
-        original_file_backup = file_path + '.orig'
+        original_file_backup = file_path + ".orig"
 
         # Rename the original file
         os.rename(file_path, original_file_backup)
@@ -227,7 +284,7 @@ class KGSRNA:
         lines_to_keep = []
 
         # Open the original file with specified encoding and process it
-        with open(original_file_backup, 'r', encoding='utf-8') as file:
+        with open(original_file_backup, "r", encoding="utf-8") as file:
             # Read the first line and add it to the list
             first_line = file.readline()
             lines_to_keep.append(first_line)
@@ -235,7 +292,7 @@ class KGSRNA:
             # Iterate over the rest of the lines
             for line in file:
                 # If the line contains 'BEGIN_base-pair', start keeping lines
-                if 'BEGIN_base-pair' in line:
+                if "BEGIN_base-pair" in line:
                     lines_to_keep.append(line)
                     break
 
@@ -243,7 +300,7 @@ class KGSRNA:
             lines_to_keep.extend(file.readlines())
 
         # Write the processed content to a new file with the original file name
-        with open(file_path, 'w', encoding='utf-8') as new_file:
+        with open(file_path, "w", encoding="utf-8") as new_file:
             new_file.writelines(lines_to_keep)
 
     def get_samples(self):
@@ -251,19 +308,20 @@ class KGSRNA:
         Method to run KGSRNA script
         :return:
         """
-        log_file = os.path.join(self.__pdb_workdir, 'kgsrna.log')
+        log_file = os.path.join(self.__pdb_workdir, "kgsrna.log")
+        print(f"Running KGS with {self.__kgs_k} samples, this may take a few minutes")
         print(
-            f"Running KGS with {self.__kgs_k} samples, this may take a few minutes")
-        print(
-            f"KGS command: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}")
-        with open(log_file, 'w', encoding='utf-8') as log:
+            f"KGS command: {self.__kgsrna_script_path.format(self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir)}"
+        )
+        with open(log_file, "w", encoding="utf-8") as log:
             subprocess.run(
                 self.__kgsrna_script_path.format(
-                    self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir),
+                    self.__pdb_path, self.__pdb_path, self.__kgs_k, self.__pdb_workdir
+                ),
                 shell=True,
                 stdout=log,
                 stderr=log,
-                check=True
+                check=True,
             )
 
     def calculate_foxs_scores(self):
@@ -277,7 +335,10 @@ class KGSRNA:
             if pdb_file.endswith(".pdb"):
                 sax_output = subprocess.run(
                     f"{self.__saxs_script_path} {os.path.join(self.__pdb_workdir_output, pdb_file)} {self.__saxs_profile_path}",
-                    shell=True, capture_output=True, check=True)
+                    shell=True,
+                    capture_output=True,
+                    check=True,
+                )
                 sax_score = find_chi_score(sax_output.stdout)
                 # print(f"sax_score: {sax_score}")
                 saxs_scores[pdb_file] = sax_score
@@ -291,9 +352,10 @@ class KGSRNA:
         :param saxs_scores:
         :return:
         """
-        sorted_scores = {k: v for k, v in sorted(
-            saxs_scores.items(), key=lambda item: item[1])}
-        return list(sorted_scores.items())[:self.__top_k]
+        sorted_scores = {
+            k: v for k, v in sorted(saxs_scores.items(), key=lambda item: item[1])
+        }
+        return list(sorted_scores.items())[: self.__top_k]
 
 
 def clean_foxs_files(dirname: str):
@@ -304,5 +366,5 @@ def clean_foxs_files(dirname: str):
     """
     files = os.listdir(dirname)
     for file in files:
-        if file.endswith('dat') or file.endswith('fit'):
+        if file.endswith("dat") or file.endswith("fit"):
             os.remove(os.path.join(dirname, file))
