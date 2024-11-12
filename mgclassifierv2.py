@@ -255,7 +255,7 @@ def scoper(args):
     multifoxs_combination_script_path = args.multifoxs_combination_script
     top_k = args.top_k
     multifoxs_run = args.multifoxs_run
-    fixc1c2 = args.fix_multifox_c1c2
+    fix_multifox_c1c2 = args.fix_multifox_c1c2
 
     go_scoper = SCOPER(
         fpath,
@@ -271,8 +271,9 @@ def scoper(args):
         kgs_k,
         top_k,
         multifoxs_run,
-        fixc1c2,
+        fix_multifox_c1c2,
     )
+    print(f"scoper pipeline with fix_multifox_c1c2: {fix_multifox_c1c2}")
     go_scoper.run()
 
 
